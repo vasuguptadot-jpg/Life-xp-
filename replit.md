@@ -1,6 +1,6 @@
-# [Project name]
+# LifeXP
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A gamified life-tracking app — turn real-world habits and goals into XP, levels, and character progression.
 
 ## Run & Operate
 
