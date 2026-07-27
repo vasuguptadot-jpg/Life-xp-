@@ -1,0 +1,21 @@
+{
+  "name": "lifexp",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "db:migrate": "turbo run db:migrate",
+    "db:generate": "turbo run db:generate"
+  },
+  "devDependencies": {
+    "turbo": "^2.10.6",
+    "typescript": "^5.5.0"
+  }
+}

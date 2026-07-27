@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "AOmMNsFl8H75_bsL4-4ON"
+uri = "file://attached_assets/LifeXP-All-Phases-Integrated.zip"
+type = "unspecified"
+title = "LifeXP — All Phases Integrated (ZIP)"
