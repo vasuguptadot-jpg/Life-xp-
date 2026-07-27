@@ -1,0 +1,683 @@
+LIFEXP — COMPLETE FEATURE-BY-FEATURE FUNCTIONALITY AUDIT
+
+You are auditing an existing LifeXP project.
+
+Do NOT immediately rewrite or rebuild the application.
+
+Your first task is to inspect the actual codebase and verify whether every feature below is genuinely functional.
+
+Do not trust previous audit reports or documentation blindly.
+
+For every feature, inspect:
+
+- Backend implementation.
+- Database/schema.
+- API/service.
+- Frontend screen/component.
+- Integration with other systems.
+- Authentication and authorization.
+- User isolation.
+- Error handling.
+- Tests.
+- Actual runtime behavior where possible.
+
+Use only these statuses:
+
+- WORKING
+- PARTIALLY WORKING
+- BROKEN
+- NOT IMPLEMENTED
+- BLOCKED
+- NOT TESTED
+
+Do not mark a feature WORKING merely because a model, route, interface, or placeholder exists.
+
+---
+
+1. CORE PLATFORM
+
+Authentication
+
+- User registration
+- Login
+- Logout
+- Session management
+- Token/session expiration
+- Password security
+- Unauthorized access handling
+- User isolation
+
+User Profile
+
+- Profile creation
+- Profile editing
+- Avatar/profile image
+- User preferences
+- Timezone
+- Onboarding
+- Account settings
+- Account deletion
+
+Core Infrastructure
+
+- Database connection
+- Migrations
+- Foreign keys
+- Unique constraints
+- Indexes
+- Error handling
+- Logging
+- Environment configuration
+- Production build
+- Type checking
+- Linting
+
+---
+
+2. PROGRESSION SYSTEM
+
+- XP earning
+- XP calculation
+- XP idempotency
+- Level calculation
+- Progress to next level
+- Streak creation
+- Streak continuation
+- Streak break handling
+- Longest streak
+- Quest creation
+- Quest progress
+- Quest completion
+- Challenge creation
+- Challenge progress
+- Challenge completion
+- Reward distribution
+- Duplicate reward prevention
+- Progression history
+
+Verify that the client cannot directly forge XP, rewards, levels, or completion.
+
+---
+
+3. PERSONALIZATION
+
+- Personalization preferences
+- User preference storage
+- Enable/disable personalization
+- Preference updates
+- Preference privacy
+- Personalized ordering
+- Personalized recommendations
+- Explicit user choices override personalization
+- Personalization does not bypass privacy
+- Personalization does not control core state
+- Personalization does not use unsafe sensitive inference
+
+---
+
+4. DAILY EXPERIENCE
+
+- Daily plan generation
+- Daily plan retrieval
+- Daily task listing
+- Priority calculation
+- Daily progress
+- Task completion
+- Duplicate completion prevention
+- Daily reset
+- Timezone-aware day boundaries
+- New-user empty state
+- Daily plan error handling
+- Daily plan frontend
+- Loading state
+- Empty state
+- Error state
+- Retry behavior
+
+Verify that the daily system does not duplicate goal, XP, achievement, or activity business logic.
+
+---
+
+5. GOALS
+
+- Create goal
+- View goals
+- Edit goal
+- Delete/archive goal
+- Goal status
+- Goal deadlines
+- Goal progress
+- Goal completion
+- Goal ownership
+- User isolation
+- Goal validation
+- Duplicate request handling
+- Goal frontend
+- Loading state
+- Empty state
+- Error state
+- Retry behavior
+
+---
+
+6. MILESTONES
+
+- Milestone creation
+- Milestone ordering
+- Milestone progress
+- Milestone completion
+- Milestone validation
+- Goal-to-milestone relationship
+- Duplicate completion prevention
+- User isolation
+- Milestone frontend
+- Progress visualization
+
+---
+
+7. ACHIEVEMENTS
+
+- Achievement definitions
+- Achievement criteria
+- Criteria evaluation
+- Achievement unlock
+- Server-authoritative unlock logic
+- Duplicate unlock prevention
+- Concurrent unlock protection
+- Achievement rewards
+- XP integration
+- Achievement history
+- Achievement frontend
+- Achievement progress visualization
+- Empty state
+- Loading state
+- Error state
+
+---
+
+8. HEALTH PLATFORM
+
+Health Data Foundation
+
+- Health activity model
+- Data source tracking
+- Provenance
+- Validation
+- Unit normalization
+- Deduplication
+- Idempotency
+- Timezone handling
+
+Manual Health Tracking
+
+- Workout entry
+- Workout history
+- Water entry
+- Water history
+- Weight entry
+- Weight history
+- Sleep entry
+- Sleep history
+- Editing records
+- Deleting records
+- Validation
+- User isolation
+
+Health Analytics
+
+- Daily health summary
+- Health history
+- Trend calculation
+- Workout analytics
+- Water analytics
+- Weight trends
+- Sleep trends
+- Health goals
+- Health goal progress
+- Deterministic health insights
+
+Health Dashboard
+
+- Health overview
+- Loading state
+- Empty state
+- Error state
+- Retry state
+
+Health Connect
+
+- Check whether runtime support actually exists.
+- If not supported, mark BLOCKED.
+- Do not claim live synchronization without real runtime verification.
+
+Do not provide medical diagnosis or unsafe medical advice.
+
+---
+
+9. SOCIAL IDENTITY AND PRIVACY
+
+- Social profile
+- Privacy settings
+- Public/private content
+- User blocking
+- User isolation
+- Profile visibility
+- Privacy enforcement across APIs
+- Privacy enforcement across frontend
+
+---
+
+10. RELATIONSHIPS
+
+- Follow/friend relationships
+- Create relationship
+- Remove relationship
+- Relationship status
+- Duplicate relationship prevention
+- Blocking interaction
+- Privacy enforcement
+- Relationship frontend
+
+---
+
+11. COMMUNITIES
+
+- Community creation
+- Community discovery
+- Community membership
+- Join/leave community
+- Community roles
+- Admin permissions
+- Moderation permissions
+- Member management
+- Privacy
+- User isolation
+- Community frontend
+
+---
+
+12. POSTS AND FEED
+
+- Create post
+- Edit post
+- Delete post
+- Post visibility
+- Feed generation
+- Feed pagination
+- Feed ordering
+- Privacy filtering
+- Block filtering
+- Moderation filtering
+- Empty feed
+- Loading state
+- Error state
+- Retry state
+
+---
+
+13. COMMENTS AND REACTIONS
+
+- Create comment
+- Edit comment
+- Delete comment
+- Comment visibility
+- Reactions
+- Remove reaction
+- Duplicate reaction prevention
+- Reaction counts
+- Comment counts
+- Privacy enforcement
+- Moderation enforcement
+
+---
+
+14. NOTIFICATIONS
+
+- Notification creation
+- Notification retrieval
+- Read/unread state
+- Mark as read
+- Notification deduplication
+- Privacy filtering
+- Social notification integration
+- Goal notification integration
+- Achievement notification integration
+- Notification frontend
+
+---
+
+15. GAMIFICATION AND REPUTATION
+
+- Social XP
+- Reputation
+- Reputation calculation
+- Idempotency
+- ProgressionService integration
+- Quest integration
+- Streak integration
+- Challenge integration
+- Duplicate reward prevention
+- Abuse prevention
+
+---
+
+16. SEARCH AND DISCOVERY
+
+- User search
+- Post search
+- Community search
+- Hashtag search
+- Search pagination
+- Search privacy
+- Block filtering
+- Moderation filtering
+- Discovery recommendations
+- Trending content
+- Trending calculation
+- Recommendation safety
+
+---
+
+17. EVENTS AND ACTIVITIES
+
+- Event creation
+- Event discovery
+- Event participation
+- Event cancellation
+- Activity creation
+- Activity participation
+- Challenges
+- Challenge progress
+- Challenge completion
+- Privacy
+- Authorization
+- Frontend flows
+
+---
+
+18. MODERATION AND TRUST & SAFETY
+
+- Report content
+- Report user
+- Moderation queue
+- Moderator permissions
+- Content removal
+- User restrictions
+- Block enforcement
+- Moderation propagation to feed
+- Moderation propagation to search
+- Moderation propagation to recommendations
+- Moderation propagation to trending
+- Abuse prevention
+- Audit logging
+
+---
+
+19. UNIFIED DASHBOARD
+
+- Dashboard API
+- Dashboard authentication
+- Dashboard user isolation
+- Daily plan integration
+- Goal integration
+- Milestone integration
+- Achievement integration
+- XP integration
+- Level integration
+- Streak integration
+- Social integration
+- Health integration where actually available
+- Source-of-truth integrity
+- No duplicate business logic
+- Partial subsystem failure handling
+- Loading state
+- Success state
+- Partial success state
+- Empty state
+- Error state
+- Retry state
+- Navigation to authoritative feature screens
+
+Verify that the dashboard is a composition layer and not a second source of truth.
+
+---
+
+20. FRONTEND QUALITY
+
+Inspect every major screen for:
+
+- Real functionality
+- Correct navigation
+- Loading states
+- Empty states
+- Error states
+- Retry actions
+- Form validation
+- Responsive layout
+- Accessibility
+- Touch targets
+- Consistent typography
+- Consistent spacing
+- Consistent components
+- No dead buttons
+- No fake data
+- No placeholder screens
+- No broken navigation
+- No development/debug UI
+
+---
+
+21. API QUALITY
+
+Audit every API for:
+
+- Authentication
+- Authorization
+- User isolation
+- Input validation
+- Consistent responses
+- Consistent errors
+- Pagination
+- Bounded queries
+- Rate limiting where appropriate
+- Idempotency where required
+- No sensitive data leakage
+
+---
+
+22. DATABASE QUALITY
+
+Check:
+
+- Schema consistency
+- Migration consistency
+- Foreign keys
+- Unique constraints
+- Indexes
+- Cascades
+- Nullable fields
+- Transaction boundaries
+- Duplicate data
+- Orphan records
+
+---
+
+23. SECURITY
+
+Verify:
+
+- Cross-user access prevention
+- Ownership enforcement
+- Privilege escalation prevention
+- Client cannot forge rewards
+- Client cannot forge XP
+- Client cannot unlock achievements directly
+- Private social data protection
+- Health data protection
+- Sensitive data protection
+- Secrets not committed
+- Secure error messages
+- Input validation
+
+---
+
+24. PERFORMANCE
+
+Inspect:
+
+- N+1 queries
+- Unbounded queries
+- Duplicate API requests
+- Excessive frontend rerenders
+- Large payloads
+- Slow screens
+- Slow startup
+
+Only report measured performance if actually measured.
+
+Otherwise report NOT MEASURED.
+
+---
+
+25. OBSERVABILITY
+
+Check:
+
+- Important errors logged
+- Authorization failures observable
+- Reward failures observable
+- Achievement failures observable
+- Dashboard failures observable
+- Sync failures observable
+- No unnecessary sensitive data in logs
+
+---
+
+26. TESTING
+
+Inspect and run all available tests.
+
+Report exact:
+
+- Total
+- Passed
+- Failed
+- Skipped
+
+Identify missing tests for:
+
+- Authentication
+- User isolation
+- XP/rewards
+- Idempotency
+- Personalization
+- Daily experience
+- Timezones
+- Goals
+- Milestones
+- Achievements
+- Health
+- Social privacy
+- Moderation
+- Dashboard
+- Frontend flows
+
+---
+
+REQUIRED FINAL REPORT
+
+Return the following:
+
+LIFEXP COMPLETE FUNCTIONALITY AUDIT
+
+1. Overall Status
+
+Choose:
+
+- PRODUCTION READY
+- RELEASE CANDIDATE
+- NEEDS FIXES
+- BLOCKED
+
+2. Feature Status Summary
+
+#| Feature| Status| Backend| Frontend| Integration| Tests| Main Issue
+
+Include every feature audited above.
+
+3. WORKING FEATURES
+
+List only features actually verified as working.
+
+4. PARTIALLY WORKING FEATURES
+
+List what works and what is missing.
+
+5. BROKEN FEATURES
+
+List actual failures.
+
+6. NOT IMPLEMENTED FEATURES
+
+List actual missing features.
+
+7. BLOCKED FEATURES
+
+List only genuine external/runtime limitations.
+
+8. CRITICAL BUGS
+
+List the most important bugs.
+
+9. SECURITY ISSUES
+
+List actual security issues.
+
+10. USER EXPERIENCE ISSUES
+
+List actual UX issues.
+
+11. PERFORMANCE ISSUES
+
+List actual issues or NOT MEASURED.
+
+12. TEST RESULTS
+
+Exact numbers:
+
+- Total:
+- Passed:
+- Failed:
+- Skipped:
+
+13. BUILD VERIFICATION
+
+- Production build:
+- Type check:
+- Lint:
+- Database migrations:
+
+14. TOP PRIORITY FIXES
+
+Rank the next fixes in order:
+
+1. 
+2. 
+3. 
+4. 
+5. 
+6. 
+7. 
+8. 
+9. 
+10. 
+
+15. FINAL RECOMMENDATION
+
+Clearly state whether the project should:
+
+- Be released.
+- Continue fixing specific issues.
+- Require a major architectural correction.
+
+Do not claim something works merely because code exists.
