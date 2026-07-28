@@ -6,6 +6,7 @@ import {
   uuid,
   json,
   unique,
+  index,
 } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 
@@ -23,6 +24,7 @@ export const questTemplatesTable = pgTable("quest_templates", {
   compatibleGoals: json("compatible_goals"),
   compatibleArchetypes: json("compatible_archetypes"),
   primaryAttributes: json("primary_attributes"),
+  // Shape: { xp?: number; attributes?: Array<{ attribute: string; xp: number }> }
   progressionConfig: json("progression_config").notNull().default({}),
   verificationRequirement: text("verification_requirement"),
   createdBy: uuid("created_by"),
@@ -35,7 +37,7 @@ export const userQuestsTable = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
-      .references(() => usersTable.id)
+      .references(() => usersTable.id, { onDelete: "cascade" })
       .notNull(),
     questTemplateId: uuid("quest_template_id")
       .references(() => questTemplatesTable.id)
@@ -51,7 +53,10 @@ export const userQuestsTable = pgTable(
     completionSource: text("completion_source"),
     verificationStatus: text("verification_status").default("PENDING").notNull(),
   },
-  (t) => [unique("user_quests_user_template_assigned_unique").on(t.userId, t.questTemplateId, t.assignedAt)],
+  (t) => [
+    unique("user_quests_user_template_assigned_unique").on(t.userId, t.questTemplateId, t.assignedAt),
+    index("user_quests_user_id_idx").on(t.userId),
+  ],
 );
 
 export type QuestTemplate = typeof questTemplatesTable.$inferSelect;

@@ -5,7 +5,6 @@ import { usersTable } from "@workspace/db/schema";
 import { requireAuth } from "../lib/auth";
 
 const router = Router();
-
 router.use(requireAuth);
 
 // GET /api/users/me
@@ -58,6 +57,24 @@ router.patch("/me", async (req, res) => {
     });
 
   res.json(updated);
+});
+
+// DELETE /api/users/me — permanent account deletion
+// ON DELETE CASCADE on all FK references to users.id handles orphan cleanup.
+router.delete("/me", async (req, res) => {
+  const userId = req.user!.sub;
+
+  const [deleted] = await db
+    .delete(usersTable)
+    .where(eq(usersTable.id, userId))
+    .returning({ id: usersTable.id });
+
+  if (!deleted) {
+    res.status(404).json({ message: "User not found" });
+    return;
+  }
+
+  res.json({ success: true, message: "Account deleted" });
 });
 
 export default router;

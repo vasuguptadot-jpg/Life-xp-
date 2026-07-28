@@ -1,8 +1,9 @@
 import { Router } from "express";
-import { eq, and, inArray, notInArray } from "drizzle-orm";
+import { and, eq, inArray, notInArray } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { questTemplatesTable, userQuestsTable } from "@workspace/db/schema";
 import { requireAuth } from "../lib/auth";
+import { awardXp, isValidAttribute, type AttributeAward } from "../lib/progression";
 
 const router = Router();
 router.use(requireAuth);
@@ -156,6 +157,7 @@ router.patch("/:id/progress", async (req, res) => {
   const newProgress = Math.min(progress, target);
   const newStatus = newProgress >= target ? "COMPLETED" : "IN_PROGRESS";
 
+  // Re-assert ownership inside the UPDATE to prevent TOCTOU
   const [updated] = await db
     .update(userQuestsTable)
     .set({
@@ -163,8 +165,18 @@ router.patch("/:id/progress", async (req, res) => {
       status: newStatus,
       ...(newStatus === "COMPLETED" && { completedAt: new Date() }),
     })
-    .where(eq(userQuestsTable.id, req.params.id))
+    .where(
+      and(
+        eq(userQuestsTable.id, req.params.id),
+        eq(userQuestsTable.userId, userId),
+      ),
+    )
     .returning();
+
+  if (!updated) {
+    res.status(404).json({ message: "Quest not found" });
+    return;
+  }
 
   res.json(updated);
 });
@@ -172,33 +184,95 @@ router.patch("/:id/progress", async (req, res) => {
 // POST /api/quests/:id/complete
 router.post("/:id/complete", async (req, res) => {
   const userId = req.user!.sub;
+  const questId = req.params.id;
 
+  // Step 1: Verify ownership
   const [quest] = await db
     .select()
     .from(userQuestsTable)
-    .where(and(eq(userQuestsTable.id, req.params.id), eq(userQuestsTable.userId, userId)))
+    .where(and(eq(userQuestsTable.id, questId), eq(userQuestsTable.userId, userId)))
     .limit(1);
 
   if (!quest) {
     res.status(404).json({ message: "Quest not found" });
     return;
   }
-  if (quest.status === "COMPLETED") {
-    res.json({ success: true, message: "Quest already completed", quest });
-    return;
-  }
-  if (quest.status !== "ASSIGNED" && quest.status !== "IN_PROGRESS") {
+  if (
+    quest.status !== "ASSIGNED" &&
+    quest.status !== "IN_PROGRESS" &&
+    quest.status !== "COMPLETED"
+  ) {
     res.status(400).json({ message: "Quest cannot be completed in current state" });
     return;
   }
 
-  const [updated] = await db
-    .update(userQuestsTable)
-    .set({ status: "COMPLETED", completedAt: new Date(), progressValue: quest.targetValue })
-    .where(eq(userQuestsTable.id, req.params.id))
-    .returning();
+  // Step 2: Fetch template for XP config
+  const [template] = await db
+    .select()
+    .from(questTemplatesTable)
+    .where(eq(questTemplatesTable.id, quest.questTemplateId))
+    .limit(1);
 
-  res.json({ success: true, quest: updated, message: "Quest completed successfully" });
+  // Step 3: Mark COMPLETED atomically — re-assert ownership + valid status in UPDATE
+  let completedQuest = quest;
+  if (quest.status !== "COMPLETED") {
+    const [updated] = await db
+      .update(userQuestsTable)
+      .set({ status: "COMPLETED", completedAt: new Date(), progressValue: quest.targetValue })
+      .where(
+        and(
+          eq(userQuestsTable.id, questId),
+          eq(userQuestsTable.userId, userId),
+          inArray(userQuestsTable.status, ["ASSIGNED", "IN_PROGRESS"]),
+        ),
+      )
+      .returning();
+
+    if (!updated) {
+      // Another request may have completed it concurrently — re-fetch to confirm
+      const [refetched] = await db
+        .select()
+        .from(userQuestsTable)
+        .where(and(eq(userQuestsTable.id, questId), eq(userQuestsTable.userId, userId)))
+        .limit(1);
+      if (!refetched || refetched.status !== "COMPLETED") {
+        res.status(409).json({ message: "Quest state changed concurrently" });
+        return;
+      }
+      completedQuest = refetched;
+    } else {
+      completedQuest = updated;
+    }
+  }
+
+  // Step 4: Award XP via server-side progression service (idempotent by questId)
+  const progressionConfig = (template?.progressionConfig ?? {}) as {
+    xp?: number;
+    attributes?: Array<{ attribute: string; xp: number }>;
+  };
+
+  const xpReward = progressionConfig.xp ?? 50;
+  const validAttributes: AttributeAward[] = (progressionConfig.attributes ?? []).filter(
+    (a): a is AttributeAward => isValidAttribute(a.attribute) && a.xp > 0,
+  );
+
+  const xpResult = await awardXp({
+    userId,
+    sourceType: "QUEST_COMPLETION",
+    sourceId: questId,
+    idempotencyKey: `quest_complete_${questId}`,
+    xp: xpReward,
+    category: "quest",
+    description: template ? `Completed quest: ${template.title}` : "Completed quest",
+    attributes: validAttributes,
+  });
+
+  res.json({
+    success: true,
+    quest: completedQuest,
+    xp: xpResult,
+    message: xpResult.alreadyAwarded ? "Quest already rewarded" : "Quest completed successfully",
+  });
 });
 
 export default router;

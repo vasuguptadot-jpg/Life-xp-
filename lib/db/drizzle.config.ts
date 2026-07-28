@@ -11,4 +11,7 @@ export default defineConfig({
   dbCredentials: {
     url: process.env.DATABASE_URL,
   },
+  // Versioned migrations — use `pnpm --filter @workspace/db run generate` then
+  // `pnpm --filter @workspace/db run migrate` for production-safe schema changes.
+  out: "./migrations",
 });

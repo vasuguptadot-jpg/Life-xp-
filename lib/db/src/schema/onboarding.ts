@@ -7,13 +7,14 @@ import {
   numeric,
   uuid,
   json,
+  index,
 } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 
 export const onboardingStatesTable = pgTable("onboarding_states", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id")
-    .references(() => usersTable.id)
+    .references(() => usersTable.id, { onDelete: "cascade" })
     .unique()
     .notNull(),
   currentStep: integer("current_step").default(1).notNull(),
@@ -26,7 +27,7 @@ export const onboardingStatesTable = pgTable("onboarding_states", {
 export const userProfilesTable = pgTable("user_profiles", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id")
-    .references(() => usersTable.id)
+    .references(() => usersTable.id, { onDelete: "cascade" })
     .unique()
     .notNull(),
   heightCm: integer("height_cm"),
@@ -48,7 +49,7 @@ export const archetypesTable = pgTable("archetypes", {
 export const userCharactersTable = pgTable("user_characters", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id")
-    .references(() => usersTable.id)
+    .references(() => usersTable.id, { onDelete: "cascade" })
     .unique()
     .notNull(),
   archetypeId: uuid("archetype_id")
@@ -59,15 +60,19 @@ export const userCharactersTable = pgTable("user_characters", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const userGoalsTable = pgTable("user_goals", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id")
-    .references(() => usersTable.id)
-    .notNull(),
-  goalKey: text("goal_key").notNull(),
-  isPrimary: boolean("is_primary").default(false).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const userGoalsTable = pgTable(
+  "user_goals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .references(() => usersTable.id, { onDelete: "cascade" })
+      .notNull(),
+    goalKey: text("goal_key").notNull(),
+    isPrimary: boolean("is_primary").default(false).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("user_goals_user_id_idx").on(t.userId)],
+);
 
 export type OnboardingState = typeof onboardingStatesTable.$inferSelect;
 export type UserProfile = typeof userProfilesTable.$inferSelect;

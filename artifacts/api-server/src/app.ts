@@ -1,4 +1,4 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
@@ -25,10 +25,51 @@ app.use(
     },
   }),
 );
-app.use(cors());
+
+// ── CORS ──────────────────────────────────────────────────────────────────────
+// In development: allow all origins.
+// In production: restrict to the CORS_ORIGINS env var (comma-separated list).
+const rawOrigins = (process.env.CORS_ORIGINS ?? "").split(",").map((o) => o.trim()).filter(Boolean);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      // Allow same-origin requests (no Origin header) and development mode
+      if (!origin || process.env.NODE_ENV !== "production") {
+        callback(null, true);
+        return;
+      }
+      if (rawOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Origin ${origin} not allowed by CORS policy`));
+      }
+    },
+    credentials: true,
+  }),
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
+
+// ── Global error handler ──────────────────────────────────────────────────────
+// Must have 4 parameters so Express recognises it as an error handler.
+// Catches all unhandled route errors, logs them safely, and returns a
+// structured JSON 500 — never leaking raw DB/stack details to clients.
+app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
+  const safeErr = err instanceof Error ? err : new Error(String(err));
+
+  // pino-http attaches req.log; fall back to the module logger
+  const log = (req as Request & { log?: typeof logger }).log ?? logger;
+  log.error({ err: safeErr }, "Unhandled request error");
+
+  if (res.headersSent) {
+    return;
+  }
+
+  res.status(500).json({ message: "Internal server error" });
+});
 
 export default app;
