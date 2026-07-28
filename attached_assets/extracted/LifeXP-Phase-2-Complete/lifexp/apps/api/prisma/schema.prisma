@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  username      String    @unique
+  passwordHash  String
+  displayName   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastLoginAt   DateTime?
+  isActive      Boolean   @default(true)
+
+  // Future relationships (Phase 2+)
+  // profile      Profile?
+  // character    Character?
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  revoked   Boolean  @default(false)
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+// === PHASE 2: Onboarding & Character ===
+
+model OnboardingState {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  currentStep     Int      @default(1)
+  isCompleted     Boolean  @default(false)
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model UserProfile {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  heightCm      Int?
+  weightKg      Decimal?
+  activityLevel String?
+  dateOfBirth   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Archetype {
+  id          String @id @default(uuid())
+  name        String @unique
+  description String
+  focusAreas  Json
+  createdAt   DateTime @default(now())
+}
+
+model UserCharacter {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  archetypeId  String
+  displayName  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id])
+  archetype Archetype @relation(fields: [archetypeId], references: [id])
+}
+
+model UserGoal {
+  id        String   @id @default(uuid())
+  userId    String
+  goalKey   String
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, goalKey])
+}
