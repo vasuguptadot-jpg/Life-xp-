@@ -305,8 +305,6 @@ function Sidebar() {
   );
 }
 
-const XP_PROGRESS = 82;
-
 function Section({ title, action, children }: { title: string; action?: string; children: React.ReactNode }) {
   return (
     <div style={{

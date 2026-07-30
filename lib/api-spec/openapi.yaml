@@ -3,13 +3,24 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: LifeXP API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication and session management
+  - name: users
+    description: User profile management
+  - name: onboarding
+    description: Onboarding flow
+  - name: progression
+    description: XP and level progression
+  - name: quests
+    description: Quest management
+
 paths:
   /healthz:
     get:
@@ -24,13 +35,993 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── Auth ──────────────────────────────────────────────────────────────────────
+  /auth/signup:
+    post:
+      operationId: signup
+      tags: [auth]
+      summary: Create a new account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupRequest"
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignupResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /auth/signin:
+    post:
+      operationId: signin
+      tags: [auth]
+      summary: Sign in and get tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SigninRequest"
+      responses:
+        "200":
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SigninResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/refresh:
+    post:
+      operationId: refreshTokens
+      tags: [auth]
+      summary: Rotate refresh token and get new access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+              required: [refreshToken]
+      responses:
+        "200":
+          description: Tokens refreshed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenPair"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Revoke refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+              required: [refreshToken]
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /auth/me:
+    get:
+      operationId: getAuthMe
+      tags: [auth]
+      summary: Get current JWT claims
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: JWT payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JwtPayload"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ── Users ─────────────────────────────────────────────────────────────────────
+  /users/me:
+    get:
+      operationId: getMe
+      tags: [users]
+      summary: Get current user profile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateMe
+      tags: [users]
+      summary: Update current user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    delete:
+      operationId: deleteMe
+      tags: [users]
+      summary: Permanently delete current user account
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Account deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Onboarding ────────────────────────────────────────────────────────────────
+  /onboarding:
+    get:
+      operationId: getOnboarding
+      tags: [onboarding]
+      summary: Get current onboarding state
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Onboarding state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OnboardingState"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /onboarding/step:
+    patch:
+      operationId: updateOnboardingStep
+      tags: [onboarding]
+      summary: Update current onboarding step
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                currentStep:
+                  type: integer
+                  minimum: 1
+                  maximum: 7
+                isCompleted:
+                  type: boolean
+      responses:
+        "200":
+          description: Updated step
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OnboardingStepRecord"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /onboarding/profile:
+    patch:
+      operationId: updateOnboardingProfile
+      tags: [onboarding]
+      summary: Save user profile data
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileRequest"
+      responses:
+        "200":
+          description: Saved profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /onboarding/goals:
+    post:
+      operationId: setGoals
+      tags: [onboarding]
+      summary: Set user goals
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GoalsRequest"
+      responses:
+        "200":
+          description: Goals saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /onboarding/archetypes:
+    get:
+      operationId: getArchetypes
+      tags: [onboarding]
+      summary: List all archetypes
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Available archetypes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Archetype"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /onboarding/archetype:
+    post:
+      operationId: selectArchetype
+      tags: [onboarding]
+      summary: Select character archetype
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                archetypeId:
+                  type: string
+              required: [archetypeId]
+      responses:
+        "200":
+          description: Character created/updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserCharacter"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /onboarding/complete:
+    post:
+      operationId: completeOnboarding
+      tags: [onboarding]
+      summary: Mark onboarding as complete
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Onboarding completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OnboardingStepRecord"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ── Progression ───────────────────────────────────────────────────────────────
+  /progression/summary:
+    get:
+      operationId: getProgressionSummary
+      tags: [progression]
+      summary: Get level, XP, attributes, and recent transactions
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Progression summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgressionSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ── Quests ────────────────────────────────────────────────────────────────────
+  /quests:
+    get:
+      operationId: getMyQuests
+      tags: [quests]
+      summary: Get user's assigned quests
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User quests with template info
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserQuestWithTemplate"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /quests/catalogue:
+    get:
+      operationId: getQuestCatalogue
+      tags: [quests]
+      summary: Get all active quest templates
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Quest templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/QuestTemplate"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /quests/recommended:
+    get:
+      operationId: getRecommendedQuests
+      tags: [quests]
+      summary: Get recommended quest templates not yet assigned
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 5
+      responses:
+        "200":
+          description: Recommended templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/QuestTemplate"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /quests/assign/{templateId}:
+    post:
+      operationId: assignQuest
+      tags: [quests]
+      summary: Assign a quest template to the current user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Quest assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserQuestWithTemplate"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /quests/{id}:
+    get:
+      operationId: getQuest
+      tags: [quests]
+      summary: Get a specific user quest
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Quest with template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserQuestWithTemplate"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /quests/{id}/progress:
+    patch:
+      operationId: updateQuestProgress
+      tags: [quests]
+      summary: Update quest progress value
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                progress:
+                  type: number
+                  minimum: 0
+              required: [progress]
+      responses:
+        "200":
+          description: Updated quest
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserQuest"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /quests/{id}/complete:
+    post:
+      operationId: completeQuest
+      tags: [quests]
+      summary: Complete a quest and award XP
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Quest completed with XP award
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuestCompleteResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorMessage"
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorMessage"
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorMessage"
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorMessage"
+
   schemas:
+    # ── Primitives ──────────────────────────────────────────────────────────────
     HealthStatus:
       type: object
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    ErrorMessage:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required: [success]
+
+    # ── Auth ────────────────────────────────────────────────────────────────────
+    SignupRequest:
+      type: object
+      properties:
+        email:
+          type: string
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+        password:
+          type: string
+          minLength: 8
+      required: [email, username, password]
+
+    SignupResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/UserSummary"
+        message:
+          type: string
+      required: [user, message]
+
+    SigninRequest:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+      required: [email, password]
+
+    SigninResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        user:
+          $ref: "#/components/schemas/UserSummary"
+      required: [accessToken, refreshToken, user]
+
+    TokenPair:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+      required: [accessToken, refreshToken]
+
+    JwtPayload:
+      type: object
+      properties:
+        sub:
+          type: string
+        email:
+          type: string
+        iat:
+          type: integer
+        exp:
+          type: integer
+      required: [sub, email]
+
+    # ── Users ───────────────────────────────────────────────────────────────────
+    UserSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        username:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, email, username]
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        username:
+          type: string
+        displayName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        lastLoginAt:
+          type: string
+          format: date-time
+          nullable: true
+      required: [id, email, username]
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        displayName:
+          type: string
+          nullable: true
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+
+    # ── Onboarding ──────────────────────────────────────────────────────────────
+    OnboardingStepRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        currentStep:
+          type: integer
+        isCompleted:
+          type: boolean
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, userId, currentStep, isCompleted]
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        heightCm:
+          type: number
+          nullable: true
+        weightKg:
+          type: string
+          nullable: true
+        activityLevel:
+          type: string
+          nullable: true
+        dateOfBirth:
+          type: string
+          format: date-time
+          nullable: true
+      required: [id, userId]
+
+    Archetype:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        focusAreas:
+          type: array
+          items:
+            type: string
+      required: [id, name, description]
+
+    UserCharacter:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        archetypeId:
+          type: string
+        displayName:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, userId, archetypeId]
+
+    UserGoal:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        goalKey:
+          type: string
+        isPrimary:
+          type: boolean
+      required: [id, userId, goalKey, isPrimary]
+
+    OnboardingState:
+      type: object
+      properties:
+        state:
+          $ref: "#/components/schemas/OnboardingStepRecord"
+        profile:
+          $ref: "#/components/schemas/UserProfile"
+          nullable: true
+        character:
+          nullable: true
+          type: object
+        goals:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserGoal"
+      required: [state, goals]
+
+    ProfileRequest:
+      type: object
+      properties:
+        heightCm:
+          type: number
+          nullable: true
+        weightKg:
+          type: number
+          nullable: true
+        activityLevel:
+          type: string
+          enum: [sedentary, light, moderate, active, very_active]
+          nullable: true
+        dateOfBirth:
+          type: string
+          format: date
+          nullable: true
+
+    GoalsRequest:
+      type: object
+      properties:
+        goals:
+          type: array
+          items:
+            type: string
+          minItems: 1
+        primaryGoal:
+          type: string
+      required: [goals]
+
+    # ── Progression ─────────────────────────────────────────────────────────────
+    UserLevel:
+      type: object
+      properties:
+        userId:
+          type: string
+        currentLevel:
+          type: integer
+        totalXp:
+          type: integer
+      required: [currentLevel, totalXp]
+
+    UserAttribute:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        attribute:
+          type: string
+          enum: [STRENGTH, ENDURANCE, MOBILITY, NUTRITION, RECOVERY, DISCIPLINE, KNOWLEDGE]
+        currentValue:
+          type: integer
+      required: [id, userId, attribute, currentValue]
+
+    XpTransaction:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        amount:
+          type: integer
+        sourceType:
+          type: string
+        category:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, userId, amount, sourceType]
+
+    ProgressionSummary:
+      type: object
+      properties:
+        level:
+          $ref: "#/components/schemas/UserLevel"
+        attributes:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserAttribute"
+        recentTransactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/XpTransaction"
+      required: [level, attributes, recentTransactions]
+
+    # ── Quests ──────────────────────────────────────────────────────────────────
+    QuestTemplate:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        questType:
+          type: string
+          enum: [DAILY, WEEKLY, MILESTONE, CHALLENGE]
+        targetValue:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, ARCHIVED]
+        progressionConfig:
+          type: object
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, title, description, category, questType, status]
+
+    UserQuest:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        questTemplateId:
+          type: string
+        status:
+          type: string
+          enum: [ASSIGNED, IN_PROGRESS, COMPLETED, ABANDONED]
+        progressValue:
+          type: string
+        targetValue:
+          type: string
+        assignedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required: [id, userId, questTemplateId, status, progressValue, targetValue]
+
+    UserQuestWithTemplate:
+      type: object
+      properties:
+        user_quests:
+          $ref: "#/components/schemas/UserQuest"
+        quest_templates:
+          $ref: "#/components/schemas/QuestTemplate"
+          nullable: true
+      required: [user_quests]
+
+    XpAwardResult:
+      type: object
+      properties:
+        alreadyAwarded:
+          type: boolean
+        xpAwarded:
+          type: integer
+        newLevel:
+          type: integer
+        leveledUp:
+          type: boolean
+      required: [alreadyAwarded, xpAwarded, newLevel, leveledUp]
+
+    QuestCompleteResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        quest:
+          $ref: "#/components/schemas/UserQuest"
+        xp:
+          $ref: "#/components/schemas/XpAwardResult"
+        message:
+          type: string
+      required: [success, quest, xp, message]
