@@ -3,22 +3,42 @@ import { useGetProgressionSummary } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Zap, TrendingUp, Trophy, ArrowUp } from "lucide-react";
+import {
+  Loader2, Zap, TrendingUp, Trophy, ArrowUp,
+  Flame, Target, Dumbbell, Brain, Heart,
+  BookOpen, Shield, Star
+} from "lucide-react";
 import { formatXp, getAttributeColorClass, cn } from "@/lib/utils";
 
-// Helper to determine XP required for next level (simple exponential curve for UI display)
 function getXpForNextLevel(currentLevel: number) {
-  return currentLevel * 1000; 
+  return currentLevel * 1000;
 }
 
 function getLevelProgress(totalXp: number, currentLevel: number) {
-  // Let's pretend previous level required (currentLevel-1)*1000 total XP
   const previousTierXp = currentLevel > 1 ? ((currentLevel - 1) * 1000) : 0;
   const currentTierRequired = getXpForNextLevel(currentLevel);
   const xpInTier = Math.max(0, totalXp - previousTierXp);
   const percentage = Math.min(100, Math.max(0, (xpInTier / currentTierRequired) * 100));
   return { xpInTier, currentTierRequired, percentage };
 }
+
+function getRankTitle(level: number) {
+  if (level < 5)  return "Initiate";
+  if (level < 10) return "Adventurer";
+  if (level < 20) return "Champion";
+  if (level < 35) return "Hero";
+  return "Legend";
+}
+
+const ATTR_ICONS: Record<string, React.ElementType> = {
+  STRENGTH: Dumbbell,
+  ENDURANCE: Flame,
+  MOBILITY: Target,
+  NUTRITION: Heart,
+  RECOVERY: Shield,
+  DISCIPLINE: Star,
+  KNOWLEDGE: Brain,
+};
 
 export default function Dashboard() {
   const { data: progression, isLoading } = useGetProgressionSummary({
@@ -37,165 +57,190 @@ export default function Dashboard() {
 
   const { level, attributes, recentTransactions } = progression;
   const { xpInTier, currentTierRequired, percentage } = getLevelProgress(level.totalXp, level.currentLevel);
-
-  // Group attributes to display them nicely
+  const rank = getRankTitle(level.currentLevel);
   const sortedAttributes = [...attributes].sort((a, b) => b.currentValue - a.currentValue);
+
+  // SVG ring constants
+  const R = 56, CIRCUMFERENCE = 2 * Math.PI * R;
+  const dashOffset = CIRCUMFERENCE - (CIRCUMFERENCE * percentage) / 100;
 
   return (
     <AppLayout>
-      <div className="max-w-6xl mx-auto space-y-6">
-        
-        <header className="flex justify-between items-end mb-8">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tighter text-glow mb-1">Status Report</h1>
-            <p className="text-muted-foreground font-mono text-sm">System synchronized. All metrics live.</p>
-          </div>
+      <div className="max-w-5xl mx-auto space-y-5">
+
+        {/* Page header */}
+        <header className="animate-slide-up-fade">
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">Today</p>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         </header>
 
-        <div className="grid gap-6 md:grid-cols-3">
-          
-          {/* Main Level Card */}
-          <Card className="md:col-span-2 relative overflow-hidden border-primary/20 bg-card/80 backdrop-blur-xl animate-slide-up-fade stagger-1">
-            <div className="absolute top-0 right-0 p-32 bg-primary/5 rounded-full blur-[100px] pointer-events-none" />
-            <CardContent className="p-8">
-              <div className="flex items-center gap-6">
-                <div className="relative">
-                  <svg className="w-32 h-32 transform -rotate-90">
-                    <circle cx="64" cy="64" r="60" className="stroke-muted fill-none" strokeWidth="8" />
-                    <circle 
-                      cx="64" cy="64" r="60" 
-                      className="stroke-primary fill-none animate-dash" 
-                      strokeWidth="8" 
-                      strokeDasharray="377" 
-                      strokeDashoffset={377 - (377 * percentage) / 100}
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-xs font-mono text-muted-foreground uppercase tracking-widest">Lvl</span>
-                    <span className="text-4xl font-black text-glow tracking-tighter leading-none">{level.currentLevel}</span>
-                  </div>
-                </div>
-                
-                <div className="flex-1 space-y-4">
-                  <div>
-                    <div className="flex justify-between items-end mb-2">
-                      <h2 className="text-xl font-bold tracking-tight uppercase">Experience</h2>
-                      <span className="font-mono text-sm text-muted-foreground">
-                        <span className="text-foreground">{formatXp(xpInTier)}</span> / {formatXp(currentTierRequired)} XP
-                      </span>
-                    </div>
-                    <Progress value={percentage} className="h-3 bg-background" indicatorClassName="bg-gradient-to-r from-primary/50 to-primary" />
-                  </div>
-                  <div className="flex gap-4">
-                    <Badge variant="outline" className="font-mono bg-background text-xs py-1">
-                      <Trophy className="w-3 h-3 mr-2 text-primary" />
-                      Rank: Initiate
-                    </Badge>
-                    <Badge variant="outline" className="font-mono bg-background text-xs py-1">
-                      <TrendingUp className="w-3 h-3 mr-2 text-accent" />
-                      Total: {formatXp(level.totalXp)}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        {/* ── Hero: XP + Level Card ─────────────────────────────── */}
+        <Card className="relative overflow-hidden border-primary/20 bg-gradient-to-br from-card via-card to-primary/5 animate-slide-up-fade stagger-1">
+          {/* Background glow orb */}
+          <div className="absolute -top-16 -right-16 w-64 h-64 bg-primary/8 rounded-full blur-3xl pointer-events-none" />
 
-          {/* Radar/Summary Box (Visual placeholder for stats balance) */}
-          <Card className="animate-slide-up-fade stagger-2 bg-card/80 backdrop-blur-xl border-border">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                <Activity className="w-4 h-4" />
-                Vitals Output
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4 pt-2">
-                {sortedAttributes.slice(0, 4).map(attr => (
-                  <div key={attr.id} className="space-y-1.5">
-                    <div className="flex justify-between text-xs font-mono">
-                      <span className={cn(getAttributeColorClass(attr.attribute), "text-attr font-bold")}>{attr.attribute}</span>
-                      <span className="text-foreground">{attr.currentValue}</span>
-                    </div>
-                    <Progress value={Math.min(100, attr.currentValue)} className="h-1.5" indicatorClassName={cn(getAttributeColorClass(attr.attribute), "bg-attr")} />
-                  </div>
-                ))}
+          <CardContent className="p-6">
+            <div className="flex items-center gap-6">
+              {/* XP Ring */}
+              <div className="relative shrink-0">
+                <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 128 128">
+                  {/* Track */}
+                  <circle cx="64" cy="64" r={R} fill="none"
+                    stroke="hsl(var(--surface))" strokeWidth="9" />
+                  {/* Progress */}
+                  <circle cx="64" cy="64" r={R} fill="none"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth="9"
+                    strokeDasharray={CIRCUMFERENCE}
+                    strokeDashoffset={dashOffset}
+                    strokeLinecap="round"
+                    className="animate-dash drop-shadow-[0_0_8px_hsl(var(--primary)/0.8)]"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Level</span>
+                  <span className="text-4xl font-black leading-none text-glow">{level.currentLevel}</span>
+                </div>
               </div>
-            </CardContent>
-          </Card>
+
+              {/* XP Info */}
+              <div className="flex-1 min-w-0 space-y-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <Badge variant="xp" className="text-[10px]">
+                      <Trophy className="w-3 h-3 mr-1" />
+                      {rank}
+                    </Badge>
+                  </div>
+                  <h2 className="text-xl font-bold mt-2">Experience Points</h2>
+                  <p className="text-sm text-muted-foreground">
+                    <span className="text-foreground font-semibold">{formatXp(xpInTier)}</span>
+                    {" "}/{" "}{formatXp(currentTierRequired)} XP to next level
+                  </p>
+                </div>
+
+                <Progress
+                  value={percentage}
+                  className="h-2.5"
+                  indicatorClassName="bg-gradient-to-r from-primary/70 to-primary shadow-[0_0_8px_hsl(var(--primary)/0.6)]"
+                />
+
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Zap className="w-3.5 h-3.5 text-primary" />
+                    <span>Total: <span className="text-foreground font-semibold">{formatXp(level.totalXp)} XP</span></span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Flame className="w-3.5 h-3.5 text-achievement" />
+                    <span><span className="text-foreground font-semibold">0</span> day streak</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ── Attributes Grid ───────────────────────────────────── */}
+        <div className="animate-slide-up-fade stagger-2">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">Attributes</h2>
+            <span className="text-xs text-muted-foreground">{attributes.length} stats tracked</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
+            {sortedAttributes.map((attr) => {
+              const Icon = ATTR_ICONS[attr.attribute] || Zap;
+              return (
+                <Card
+                  key={attr.id}
+                  className={cn(
+                    "p-3 flex flex-col items-center gap-2 border hover:scale-[1.03] transition-transform duration-200 cursor-default",
+                    getAttributeColorClass(attr.attribute)
+                  )}
+                >
+                  <div className={cn(
+                    "w-9 h-9 rounded-xl flex items-center justify-center border bg-background/40",
+                    "border-attr shadow-attr"
+                  )}>
+                    <Icon className="w-4.5 h-4.5 text-attr" />
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xl font-black leading-none text-attr">{attr.currentValue}</div>
+                    <div className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground mt-0.5">
+                      {attr.attribute.slice(0, 3)}
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          
-          {/* Full Attributes List */}
-          <Card className="animate-slide-up-fade stagger-3">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Zap className="w-5 h-5 text-primary" />
-                Core Attributes
+        {/* ── Bottom Row ────────────────────────────────────────── */}
+        <div className="grid gap-4 md:grid-cols-2 animate-slide-up-fade stagger-3">
+
+          {/* Attribute Progress Bars */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-accent" />
+                Skill Progress
               </CardTitle>
             </CardHeader>
-            <CardContent className="grid sm:grid-cols-2 gap-4">
-              {sortedAttributes.map(attr => (
-                <div key={attr.id} className="flex items-center p-3 rounded-lg border border-border bg-background/50 hover:bg-card transition-colors">
-                  <div className={cn(
-                    "w-10 h-10 rounded flex items-center justify-center text-lg font-bold mr-3 border bg-background",
-                    getAttributeColorClass(attr.attribute),
-                    "border-attr text-attr shadow-attr"
-                  )}>
-                    {attr.attribute.charAt(0)}
+            <CardContent className="space-y-4">
+              {sortedAttributes.slice(0, 5).map((attr) => (
+                <div key={attr.id} className={cn("space-y-1.5", getAttributeColorClass(attr.attribute))}>
+                  <div className="flex justify-between text-xs font-medium">
+                    <span className="text-attr">{attr.attribute}</span>
+                    <span className="text-foreground tabular-nums">{attr.currentValue}</span>
                   </div>
-                  <div>
-                    <div className="text-xs font-mono text-muted-foreground">{attr.attribute}</div>
-                    <div className="font-bold text-lg leading-none">{attr.currentValue}</div>
+                  <div className="relative h-1.5 rounded-full bg-surface overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-attr shadow-attr transition-all duration-700"
+                      style={{ width: `${Math.min(100, attr.currentValue)}%` }}
+                    />
                   </div>
                 </div>
               ))}
             </CardContent>
           </Card>
 
-          {/* Recent Activity Log */}
-          <Card className="animate-slide-up-fade stagger-4 flex flex-col">
-            <CardHeader className="border-b border-border bg-card/50">
-              <CardTitle className="text-lg">Recent XP Feed</CardTitle>
+          {/* Recent XP Feed */}
+          <Card className="flex flex-col">
+            <CardHeader className="pb-3 border-b border-border">
+              <CardTitle className="text-base flex items-center gap-2">
+                <ArrowUp className="w-4 h-4 text-primary" />
+                XP Feed
+              </CardTitle>
             </CardHeader>
-            <CardContent className="p-0 flex-1 overflow-y-auto max-h-[300px]">
+            <CardContent className="p-0 flex-1 overflow-y-auto max-h-[260px]">
               {recentTransactions.length > 0 ? (
                 <div className="divide-y divide-border">
                   {recentTransactions.map((tx) => (
-                    <div key={tx.id} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
+                    <div key={tx.id} className="flex items-center justify-between px-5 py-3.5 hover:bg-surface/50 transition-colors">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center border border-primary/30">
-                          <ArrowUp className="w-4 h-4" />
+                        <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center border border-primary/20 shrink-0">
+                          <ArrowUp className="w-3.5 h-3.5" />
                         </div>
                         <div>
-                          <div className="font-medium text-sm">{tx.sourceType}</div>
-                          <div className="text-xs font-mono text-muted-foreground">{new Date(tx.createdAt || "").toLocaleDateString()}</div>
+                          <div className="text-sm font-medium capitalize">{tx.sourceType.toLowerCase().replace("_", " ")}</div>
+                          <div className="text-xs text-muted-foreground">{new Date(tx.createdAt || "").toLocaleDateString()}</div>
                         </div>
                       </div>
-                      <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 font-mono">
-                        +{tx.amount} XP
-                      </Badge>
+                      <Badge variant="xp" className="text-[11px] tabular-nums">+{tx.amount} XP</Badge>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="p-8 text-center text-muted-foreground font-mono text-sm">
-                  No recent activity logged.
-                  <br />Time to complete some quests.
+                <div className="p-8 text-center">
+                  <BookOpen className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
+                  <p className="text-sm text-muted-foreground">No activity yet.</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">Complete quests to earn XP.</p>
                 </div>
               )}
             </CardContent>
           </Card>
-
         </div>
       </div>
     </AppLayout>
   );
-}
-
-// simple icon mapping missing component above
-function Activity(props: any) {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>;
 }

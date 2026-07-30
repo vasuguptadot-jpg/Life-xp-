@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useGetMe } from "@workspace/api-client-react";
-import { LayoutDashboard, Target, User as UserIcon, Loader2 } from "lucide-react";
+import { LayoutDashboard, Target, User as UserIcon, Loader2, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEffect } from "react";
 
@@ -41,67 +41,89 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <div className="flex h-[100dvh] overflow-hidden bg-background text-foreground">
-      {/* Sidebar - Desktop */}
+      {/* Sidebar — Desktop */}
       <aside className="hidden md:flex w-64 flex-col border-r border-sidebar-border bg-sidebar">
-        <div className="h-16 flex items-center px-6 border-b border-sidebar-border">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded bg-primary/20 flex items-center justify-center border border-primary text-primary font-bold">
-              LX
+        {/* Logo */}
+        <div className="h-16 flex items-center px-5 border-b border-sidebar-border">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shadow-[0_0_16px_hsl(var(--primary)/0.4)]">
+              <Zap className="w-5 h-5 text-primary-foreground" fill="currentColor" />
             </div>
-            <span className="font-bold text-xl tracking-tighter text-glow">LifeXP</span>
+            <span className="font-bold text-xl tracking-tight text-glow">LifeXP</span>
           </div>
         </div>
-        
-        <nav className="flex-1 px-4 py-6 space-y-2">
+
+        {/* Nav */}
+        <nav className="flex-1 px-3 py-5 space-y-1">
           {navItems.map((item) => {
             const isActive = location.startsWith(item.href);
             return (
               <Link key={item.href} href={item.href} className="block">
                 <div
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
-                    isActive 
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" 
-                      : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                    "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-sm font-medium",
+                    isActive
+                      ? "bg-primary/15 text-primary border border-primary/20"
+                      : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
                   )}
                 >
-                  <item.icon className={cn("w-5 h-5", isActive ? "text-primary" : "")} />
+                  <item.icon className={cn("w-5 h-5 shrink-0", isActive ? "text-primary" : "")} />
                   {item.label}
                 </div>
               </Link>
             );
           })}
         </nav>
+
+        {/* User footer */}
+        <div className="p-3 border-t border-sidebar-border">
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-sidebar-accent">
+            <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary font-bold text-xs shrink-0">
+              {user.username?.charAt(0).toUpperCase() || "U"}
+            </div>
+            <div className="overflow-hidden">
+              <div className="text-sm font-semibold truncate">{user.displayName || user.username}</div>
+              <div className="text-xs text-muted-foreground truncate">{user.email}</div>
+            </div>
+          </div>
+        </div>
       </aside>
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col relative overflow-hidden">
         {/* Mobile Header */}
-        <header className="md:hidden h-14 flex items-center px-4 border-b border-border bg-background/95 backdrop-blur z-10 sticky top-0">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-primary/20 flex items-center justify-center border border-primary text-primary font-bold text-xs">
-              LX
+        <header className="md:hidden h-14 flex items-center justify-between px-4 border-b border-border bg-background/90 backdrop-blur-xl z-10 sticky top-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center shadow-[0_0_12px_hsl(var(--primary)/0.4)]">
+              <Zap className="w-4 h-4 text-primary-foreground" fill="currentColor" />
             </div>
-            <span className="font-bold text-lg tracking-tighter text-glow">LifeXP</span>
+            <span className="font-bold text-lg tracking-tight text-glow">LifeXP</span>
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-20 md:pb-8">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8">
           {children}
         </div>
 
-        {/* Mobile Navigation */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 border-t border-border bg-background flex items-center justify-around px-2 z-50">
+        {/* Mobile Bottom Navigation */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[72px] border-t border-border bg-background/95 backdrop-blur-xl flex items-center justify-around px-4 z-50">
           {navItems.map((item) => {
             const isActive = location.startsWith(item.href);
             return (
               <Link key={item.href} href={item.href} className="flex-1 flex justify-center">
                 <div className={cn(
-                  "flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors",
-                  isActive ? "text-primary" : "text-muted-foreground"
+                  "flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-xl transition-all duration-200",
+                  isActive
+                    ? "text-primary"
+                    : "text-muted-foreground"
                 )}>
-                  <item.icon className="w-5 h-5" />
-                  <span className="text-[10px] font-medium">{item.label}</span>
+                  <div className={cn(
+                    "p-1.5 rounded-xl transition-all duration-200",
+                    isActive && "bg-primary/15"
+                  )}>
+                    <item.icon className="w-5 h-5" />
+                  </div>
+                  <span className="text-[10px] font-semibold">{item.label}</span>
                 </div>
               </Link>
             );

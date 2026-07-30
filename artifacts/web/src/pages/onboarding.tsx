@@ -11,61 +11,55 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ArrowRight, ChevronRight, Activity, Target as TargetIcon, Sword } from "lucide-react";
+import {
+  Loader2, ArrowRight, Activity, Target as TargetIcon,
+  Zap, Dumbbell, Brain, Heart, Flame, Trophy, Check
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
-// 7-step flow:
-// 1: Welcome
-// 2: Profile (Height/Weight/Activity)
-// 3: Goals
-// 4: Archetype
-// 5: Complete (transitions out)
-// Wait, instructions say 7 steps? "7-step guided flow: welcome → profile (height/weight/activity) → goals → archetype selection → complete". That's 5 distinct sections, maybe 7 internal steps? I'll build it to handle whatever `currentStep` the API says, up to completion.
-
 const ACTIVITY_LEVELS = [
-  { id: "sedentary", label: "Sedentary", desc: "Little to no exercise" },
-  { id: "light", label: "Light", desc: "1-3 days/week" },
-  { id: "moderate", label: "Moderate", desc: "3-5 days/week" },
-  { id: "active", label: "Active", desc: "6-7 days/week" },
-  { id: "very_active", label: "Very Active", desc: "Hard exercise daily" }
+  { id: "sedentary",   label: "Sedentary",   desc: "Little to no exercise" },
+  { id: "light",       label: "Light",        desc: "1–3 days / week" },
+  { id: "moderate",    label: "Moderate",     desc: "3–5 days / week" },
+  { id: "active",      label: "Active",       desc: "6–7 days / week" },
+  { id: "very_active", label: "Very Active",  desc: "Hard exercise daily" },
 ] as const;
+
+const GOAL_OPTIONS = [
+  { id: "strength",   label: "Build Strength",    icon: Dumbbell, color: "attr-strength" },
+  { id: "endurance",  label: "Increase Endurance", icon: Flame,    color: "attr-endurance" },
+  { id: "mind",       label: "Mental Clarity",     icon: Brain,    color: "attr-knowledge" },
+  { id: "discipline", label: "Build Routine",      icon: TargetIcon, color: "attr-discipline" },
+];
 
 export default function Onboarding() {
   const [, setLocation] = useLocation();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  
+  const { toast }       = useToast();
+  const queryClient     = useQueryClient();
+
   const { data: state, isLoading: isLoadingState } = useGetOnboarding({
     query: { queryKey: ["/api/onboarding"], retry: false }
   });
+  const { data: archetypes } = useGetArchetypes({ query: { queryKey: ["/api/archetypes"] } });
 
-  const { data: archetypes } = useGetArchetypes({
-    query: { queryKey: ["/api/archetypes"] }
-  });
-
-  const stepMutation = useUpdateOnboardingStep();
-  const profileMutation = useUpdateOnboardingProfile();
-  const goalsMutation = useSetGoals();
+  const stepMutation      = useUpdateOnboardingStep();
+  const profileMutation   = useUpdateOnboardingProfile();
+  const goalsMutation     = useSetGoals();
   const archetypeMutation = useSelectArchetype();
-  const completeMutation = useCompleteOnboarding();
+  const completeMutation  = useCompleteOnboarding();
 
-  // Local form state
-  const [height, setHeight] = useState("");
-  const [weight, setWeight] = useState("");
-  const [activity, setActivity] = useState<any>(null);
-  
-  const [goals, setLocalGoals] = useState<string[]>([]);
+  const [height, setHeight]         = useState("");
+  const [weight, setWeight]         = useState("");
+  const [activity, setActivity]     = useState<any>(null);
+  const [goals, setLocalGoals]      = useState<string[]>([]);
   const [archetypeId, setArchetypeId] = useState("");
 
   useEffect(() => {
-    if (state?.state?.isCompleted) {
-      setLocation("/dashboard");
-    }
+    if (state?.state?.isCompleted) setLocation("/dashboard");
   }, [state, setLocation]);
 
   if (isLoadingState || !state) {
@@ -77,289 +71,300 @@ export default function Onboarding() {
   }
 
   const currentStep = state.state.currentStep || 1;
+  const totalSteps  = 5;
 
-  const handleNextStep = (nextStep: number) => {
+  const handleNextStep = (nextStep: number) =>
     stepMutation.mutate({ data: { currentStep: nextStep } }, {
       onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/onboarding"] })
     });
-  };
 
-  const handleWelcome = () => handleNextStep(2);
-
-  const handleProfile = () => {
+  const handleProfile = () =>
     profileMutation.mutate({
       data: {
-        heightCm: height ? Number(height) : undefined,
-        weightKg: weight ? Number(weight) : undefined,
-        activityLevel: activity || undefined
+        heightCm:      height   ? Number(height)   : undefined,
+        weightKg:      weight   ? Number(weight)   : undefined,
+        activityLevel: activity ?? undefined,
       }
-    }, {
-      onSuccess: () => handleNextStep(3)
-    });
-  };
+    }, { onSuccess: () => handleNextStep(3) });
 
   const handleGoals = () => {
     if (goals.length === 0) {
-      toast({ title: "Select a goal", description: "Choose at least one focus area.", variant: "destructive" });
+      toast({ title: "Pick at least one goal", variant: "destructive" });
       return;
     }
-    goalsMutation.mutate({
-      data: { goals, primaryGoal: goals[0] }
-    }, {
+    goalsMutation.mutate({ data: { goals, primaryGoal: goals[0] } }, {
       onSuccess: () => handleNextStep(4)
     });
   };
 
   const handleArchetype = () => {
     if (!archetypeId) {
-      toast({ title: "Select archetype", description: "Choose your path.", variant: "destructive" });
+      toast({ title: "Select a class", variant: "destructive" });
       return;
     }
-    archetypeMutation.mutate({
-      data: { archetypeId }
-    }, {
-      onSuccess: () => handleNextStep(5) // go to final complete step
+    archetypeMutation.mutate({ data: { archetypeId } }, {
+      onSuccess: () => handleNextStep(5)
     });
   };
 
-  const handleComplete = () => {
+  const handleComplete = () =>
     completeMutation.mutate(undefined, {
       onSuccess: () => {
-        toast({ title: "Setup Complete", description: "Your journey begins now." });
+        toast({ title: "Setup complete!", description: "Your adventure begins now." });
         setLocation("/dashboard");
       }
     });
-  };
 
-  // Render logic based on currentStep
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background relative overflow-hidden">
-      {/* HUD Accents */}
-      <div className="absolute top-0 left-0 w-full h-1 bg-primary/20">
-        <div 
-          className="h-full bg-primary transition-all duration-500 ease-out shadow-[0_0_10px_hsl(var(--primary))]"
-          style={{ width: `${(currentStep / 5) * 100}%` }}
+      {/* Ambient */}
+      <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-80 h-80 bg-accent/5 rounded-full blur-[100px] pointer-events-none" />
+
+      {/* Progress bar */}
+      <div className="h-1 w-full bg-surface">
+        <div
+          className="h-full bg-primary transition-all duration-500 ease-out shadow-[0_0_8px_hsl(var(--primary)/0.6)]"
+          style={{ width: `${(currentStep / totalSteps) * 100}%` }}
         />
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-xl">
-          
-          {/* STEP 1: WELCOME */}
+      {/* Step dots */}
+      <div className="flex justify-center gap-2 pt-5 pb-2">
+        {Array.from({ length: totalSteps }).map((_, i) => (
+          <div
+            key={i}
+            className={cn(
+              "h-1.5 rounded-full transition-all duration-300",
+              i + 1 <= currentStep ? "bg-primary w-6" : "bg-surface w-3"
+            )}
+          />
+        ))}
+      </div>
+
+      <div className="flex-1 flex items-center justify-center p-5">
+        <div className="w-full max-w-lg">
+
+          {/* ── Step 1: Welcome ── */}
           {currentStep === 1 && (
-            <div className="space-y-8 animate-slide-up-fade">
-              <div className="w-20 h-20 bg-primary/10 border border-primary/50 flex items-center justify-center rounded-2xl mx-auto shadow-[0_0_40px_hsl(var(--primary)/0.2)]">
-                <Activity className="w-10 h-10 text-primary" />
+            <div className="space-y-8 text-center animate-slide-up-fade">
+              <div className="w-20 h-20 bg-primary rounded-3xl flex items-center justify-center mx-auto shadow-[0_0_48px_hsl(var(--primary)/0.4)]">
+                <Zap className="w-10 h-10 text-primary-foreground" fill="currentColor" />
               </div>
-              <div className="text-center space-y-4">
-                <h1 className="text-4xl font-bold tracking-tighter text-glow">System Initialized</h1>
-                <p className="text-muted-foreground font-mono text-sm leading-relaxed max-w-md mx-auto">
-                  LifeXP tracks your physical, mental, and disciplinary progress in the real world. You are the character. Every action grants XP.
+              <div className="space-y-3">
+                <h1 className="text-4xl font-black tracking-tight text-glow">Welcome to LifeXP</h1>
+                <p className="text-muted-foreground leading-relaxed max-w-sm mx-auto">
+                  Turn your real-world habits, workouts, and goals into XP and character progression. Every action counts.
                 </p>
               </div>
-              <div className="pt-8 flex justify-center">
-                <Button onClick={handleWelcome} size="lg" className="w-full sm:w-auto min-w-[200px] h-14 text-lg group">
-                  Begin Setup
-                  <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              <div className="flex justify-center pt-2">
+                <Button onClick={() => handleNextStep(2)} size="lg" className="min-w-[200px] h-13 text-base font-bold group">
+                  Let's Begin
+                  <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
                 </Button>
               </div>
             </div>
           )}
 
-          {/* STEP 2: PROFILE */}
+          {/* ── Step 2: Profile ── */}
           {currentStep === 2 && (
-            <div className="space-y-8 animate-slide-up-fade">
+            <div className="space-y-7 animate-slide-up-fade">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">Step 2 of {totalSteps}</p>
+                <h2 className="text-2xl font-bold tracking-tight">Your Baseline</h2>
+                <p className="text-sm text-muted-foreground mt-1">Used to personalize your fitness progression.</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Height (cm)</Label>
+                  <Input type="number" value={height} onChange={e => setHeight(e.target.value)}
+                    placeholder="175" className="h-12 bg-surface border-border rounded-xl text-lg font-semibold" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Weight (kg)</Label>
+                  <Input type="number" value={weight} onChange={e => setWeight(e.target.value)}
+                    placeholder="70" className="h-12 bg-surface border-border rounded-xl text-lg font-semibold" />
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <h2 className="text-2xl font-bold tracking-tight text-glow">Baseline Metrics</h2>
-                <p className="text-muted-foreground font-mono text-xs">Used to calibrate physical progression rates.</p>
-              </div>
-              
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="font-mono text-xs text-muted-foreground uppercase">Height (cm)</Label>
-                    <Input 
-                      type="number" 
-                      value={height} 
-                      onChange={(e) => setHeight(e.target.value)} 
-                      placeholder="175"
-                      className="h-12 font-mono text-lg bg-card/50"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="font-mono text-xs text-muted-foreground uppercase">Weight (kg)</Label>
-                    <Input 
-                      type="number" 
-                      value={weight} 
-                      onChange={(e) => setWeight(e.target.value)} 
-                      placeholder="70"
-                      className="h-12 font-mono text-lg bg-card/50"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <Label className="font-mono text-xs text-muted-foreground uppercase">Activity Level</Label>
-                  <div className="grid gap-2">
-                    {ACTIVITY_LEVELS.map(lvl => (
-                      <div 
-                        key={lvl.id}
-                        onClick={() => setActivity(lvl.id as any)}
-                        className={cn(
-                          "p-4 border rounded-lg cursor-pointer transition-all flex items-center justify-between",
-                          activity === lvl.id 
-                            ? "bg-primary/10 border-primary text-primary shadow-[0_0_15px_hsl(var(--primary)/0.1)]" 
-                            : "bg-card border-card-border hover:border-primary/50 text-foreground"
-                        )}
-                      >
-                        <div>
-                          <div className="font-bold tracking-tight">{lvl.label}</div>
-                          <div className="text-xs font-mono text-muted-foreground mt-1">{lvl.desc}</div>
-                        </div>
-                        <div className={cn(
-                          "w-4 h-4 rounded-full border",
-                          activity === lvl.id ? "border-primary bg-primary" : "border-muted-foreground"
-                        )} />
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Activity Level</Label>
+                <div className="grid gap-2">
+                  {ACTIVITY_LEVELS.map(lvl => (
+                    <button
+                      key={lvl.id}
+                      type="button"
+                      onClick={() => setActivity(lvl.id)}
+                      className={cn(
+                        "w-full p-4 rounded-xl border text-left transition-all duration-200 flex items-center justify-between",
+                        activity === lvl.id
+                          ? "bg-primary/10 border-primary/50 text-primary"
+                          : "bg-surface border-border hover:border-border/80 text-foreground"
+                      )}
+                    >
+                      <div>
+                        <div className="font-semibold text-sm">{lvl.label}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">{lvl.desc}</div>
                       </div>
-                    ))}
-                  </div>
+                      <div className={cn(
+                        "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
+                        activity === lvl.id ? "border-primary bg-primary" : "border-muted-foreground/40"
+                      )}>
+                        {activity === lvl.id && <Check className="w-3 h-3 text-primary-foreground" />}
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              <div className="flex justify-end">
-                <Button onClick={handleProfile} disabled={profileMutation.isPending} className="w-full sm:w-auto">
-                  {profileMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Metrics"}
+              <div className="flex justify-between pt-2">
+                <Button variant="ghost" onClick={() => handleNextStep(1)}>Back</Button>
+                <Button onClick={handleProfile} disabled={profileMutation.isPending}>
+                  {profileMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Continue"}
                 </Button>
               </div>
             </div>
           )}
 
-          {/* STEP 3: GOALS */}
+          {/* ── Step 3: Goals ── */}
           {currentStep === 3 && (
-            <div className="space-y-8 animate-slide-up-fade">
-              <div className="space-y-2">
-                <h2 className="text-2xl font-bold tracking-tight text-glow">Primary Directives</h2>
-                <p className="text-muted-foreground font-mono text-xs">Select areas of focus for quest generation.</p>
+            <div className="space-y-7 animate-slide-up-fade">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">Step 3 of {totalSteps}</p>
+                <h2 className="text-2xl font-bold tracking-tight">Your Focus Areas</h2>
+                <p className="text-sm text-muted-foreground mt-1">Select what you want to improve. Choose multiple.</p>
               </div>
 
               <div className="grid gap-3">
-                {[
-                  { id: "strength", label: "Build Strength", icon: TargetIcon, color: "var(--attr-color)" },
-                  { id: "endurance", label: "Increase Endurance", icon: TargetIcon },
-                  { id: "mind", label: "Mental Clarity", icon: TargetIcon },
-                  { id: "discipline", label: "Build Routine", icon: TargetIcon }
-                ].map(goal => {
+                {GOAL_OPTIONS.map(goal => {
                   const isSelected = goals.includes(goal.id);
+                  const Icon = goal.icon;
                   return (
-                    <div 
+                    <button
                       key={goal.id}
-                      onClick={() => {
-                        if (isSelected) setLocalGoals(goals.filter(g => g !== goal.id));
-                        else setLocalGoals([...goals, goal.id]);
-                      }}
+                      type="button"
+                      onClick={() => isSelected
+                        ? setLocalGoals(goals.filter(g => g !== goal.id))
+                        : setLocalGoals([...goals, goal.id])}
                       className={cn(
-                        "p-4 border rounded-lg cursor-pointer transition-all flex items-center gap-4",
-                        isSelected 
-                          ? "bg-primary/10 border-primary shadow-[0_0_15px_hsl(var(--primary)/0.1)]" 
-                          : "bg-card border-card-border hover:border-primary/50"
+                        "w-full p-4 rounded-xl border text-left transition-all duration-200 flex items-center gap-4",
+                        isSelected
+                          ? "bg-primary/10 border-primary/50"
+                          : "bg-surface border-border hover:border-border/80"
                       )}
                     >
                       <div className={cn(
-                        "w-10 h-10 rounded bg-background flex items-center justify-center border",
-                        isSelected ? "border-primary text-primary" : "border-border text-muted-foreground"
+                        "w-10 h-10 rounded-xl border flex items-center justify-center shrink-0",
+                        isSelected ? "bg-primary/15 border-primary/40" : "bg-background border-border"
                       )}>
-                        <goal.icon className="w-5 h-5" />
+                        <Icon className={cn("w-5 h-5", isSelected ? "text-primary" : "text-muted-foreground")} />
                       </div>
-                      <div className="flex-1 font-bold text-lg">{goal.label}</div>
+                      <span className="font-semibold text-sm flex-1">{goal.label}</span>
                       <div className={cn(
-                        "w-5 h-5 border rounded flex items-center justify-center",
-                        isSelected ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground"
+                        "w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0",
+                        isSelected ? "bg-primary border-primary" : "border-muted-foreground/40"
                       )}>
-                        {isSelected && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="w-3 h-3"><path d="M20 6L9 17l-5-5"/></svg>}
+                        {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
                       </div>
-                    </div>
-                  )
+                    </button>
+                  );
                 })}
               </div>
 
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between pt-2">
                 <Button variant="ghost" onClick={() => handleNextStep(2)}>Back</Button>
-                <Button onClick={handleGoals} disabled={goalsMutation.isPending} className="w-full sm:w-auto">
-                  {goalsMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm Directives"}
+                <Button onClick={handleGoals} disabled={goalsMutation.isPending}>
+                  {goalsMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Continue"}
                 </Button>
               </div>
             </div>
           )}
 
-          {/* STEP 4: ARCHETYPE */}
+          {/* ── Step 4: Archetype ── */}
           {currentStep === 4 && (
-            <div className="space-y-8 animate-slide-up-fade">
-              <div className="space-y-2">
-                <h2 className="text-2xl font-bold tracking-tight text-glow">Select Class</h2>
-                <p className="text-muted-foreground font-mono text-xs">Determines your starting stat multipliers.</p>
+            <div className="space-y-7 animate-slide-up-fade">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">Step 4 of {totalSteps}</p>
+                <h2 className="text-2xl font-bold tracking-tight">Choose Your Class</h2>
+                <p className="text-sm text-muted-foreground mt-1">Your archetype shapes your starting stat multipliers.</p>
               </div>
 
-              <div className="grid sm:grid-cols-2 gap-4">
-                {archetypes?.map((arch) => (
-                  <Card 
-                    key={arch.id}
-                    className={cn(
-                      "p-6 cursor-pointer transition-all border-2 overflow-hidden relative group",
-                      archetypeId === arch.id 
-                        ? "border-primary bg-primary/5" 
-                        : "border-card-border hover:border-primary/30"
-                    )}
-                    onClick={() => setArchetypeId(arch.id)}
-                  >
-                    {/* Background glow if selected */}
-                    {archetypeId === arch.id && (
-                      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" />
-                    )}
-                    
-                    <div className="relative z-10 space-y-4">
-                      <div className="w-12 h-12 rounded-lg bg-background border border-border flex items-center justify-center">
-                        <Sword className={cn("w-6 h-6", archetypeId === arch.id ? "text-primary" : "text-muted-foreground")} />
+              {archetypes && archetypes.length > 0 ? (
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {archetypes.map((arch) => (
+                    <button
+                      key={arch.id}
+                      type="button"
+                      onClick={() => setArchetypeId(arch.id)}
+                      className={cn(
+                        "p-5 rounded-2xl border text-left transition-all duration-200 relative overflow-hidden",
+                        archetypeId === arch.id
+                          ? "bg-primary/10 border-primary/50 shadow-[0_0_20px_hsl(var(--primary)/0.15)]"
+                          : "bg-surface border-border hover:border-border/80"
+                      )}
+                    >
+                      {archetypeId === arch.id && (
+                        <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                          <Check className="w-3 h-3 text-primary-foreground" />
+                        </div>
+                      )}
+                      <div className="w-10 h-10 rounded-xl bg-background border border-border flex items-center justify-center mb-3">
+                        <Zap className={cn("w-5 h-5", archetypeId === arch.id ? "text-primary" : "text-muted-foreground")} />
                       </div>
-                      <div>
-                        <h3 className="text-xl font-bold tracking-tight mb-1">{arch.name}</h3>
-                        <p className="text-xs text-muted-foreground font-mono h-12 leading-relaxed line-clamp-3">{arch.description}</p>
-                      </div>
-                      {arch.focusAreas && (
-                        <div className="flex flex-wrap gap-2 pt-2">
+                      <h3 className="font-bold text-base mb-1">{arch.name}</h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">{arch.description}</p>
+                      {arch.focusAreas && arch.focusAreas.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-3">
                           {arch.focusAreas.map(area => (
-                            <span key={area} className="text-[10px] font-mono px-2 py-1 bg-background rounded border text-muted-foreground">
+                            <span key={area} className="text-[10px] px-2 py-0.5 bg-background rounded-full border border-border text-muted-foreground">
                               {area}
                             </span>
                           ))}
                         </div>
                       )}
-                    </div>
-                  </Card>
-                ))}
-              </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Activity className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">No archetypes available yet.</p>
+                  <p className="text-xs mt-1">Ask your admin to seed the database.</p>
+                  <Button variant="outline" size="sm" className="mt-4" onClick={() => handleNextStep(5)}>
+                    Skip for now
+                  </Button>
+                </div>
+              )}
 
-              <div className="flex justify-between items-center">
-                <Button variant="ghost" onClick={() => handleNextStep(3)}>Back</Button>
-                <Button onClick={handleArchetype} disabled={archetypeMutation.isPending} className="w-full sm:w-auto">
-                  {archetypeMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Lock In"}
-                </Button>
-              </div>
+              {archetypes && archetypes.length > 0 && (
+                <div className="flex justify-between pt-2">
+                  <Button variant="ghost" onClick={() => handleNextStep(3)}>Back</Button>
+                  <Button onClick={handleArchetype} disabled={archetypeMutation.isPending}>
+                    {archetypeMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm Class"}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 
-          {/* STEP 5: COMPLETE */}
+          {/* ── Step 5: Complete ── */}
           {currentStep >= 5 && (
-            <div className="space-y-8 animate-slide-up-fade text-center py-12">
-              <div className="w-24 h-24 bg-primary/20 border-2 border-primary flex items-center justify-center rounded-full mx-auto shadow-[0_0_50px_hsl(var(--primary)/0.4)]">
-                <Sword className="w-10 h-10 text-primary" />
+            <div className="space-y-8 text-center animate-slide-up-fade py-8">
+              <div className="w-24 h-24 rounded-full bg-primary flex items-center justify-center mx-auto shadow-[0_0_60px_hsl(var(--primary)/0.5)]">
+                <Trophy className="w-12 h-12 text-primary-foreground" fill="currentColor" />
               </div>
-              <div className="space-y-2">
-                <h2 className="text-3xl font-bold tracking-tight text-glow uppercase">Calibration Complete</h2>
-                <p className="text-muted-foreground font-mono text-sm max-w-xs mx-auto">Your character profile is synced. The dashboard awaits your command.</p>
+              <div className="space-y-3">
+                <h2 className="text-3xl font-black tracking-tight text-glow">You're All Set!</h2>
+                <p className="text-muted-foreground max-w-xs mx-auto leading-relaxed">
+                  Your character is ready. Head to the dashboard to start earning XP.
+                </p>
               </div>
-              <div className="pt-4">
-                <Button onClick={handleComplete} disabled={completeMutation.isPending} size="lg" className="w-full sm:w-auto min-w-[200px]">
-                  {completeMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : "Enter Dashboard"}
+              <div className="pt-2 flex justify-center">
+                <Button onClick={handleComplete} disabled={completeMutation.isPending} size="lg" className="min-w-[200px] h-13 text-base font-bold group">
+                  {completeMutation.isPending
+                    ? <Loader2 className="w-5 h-5 animate-spin" />
+                    : <>Enter Dashboard <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-0.5 transition-transform" /></>}
                 </Button>
               </div>
             </div>

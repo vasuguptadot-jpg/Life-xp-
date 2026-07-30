@@ -50,69 +50,94 @@
   --color-sidebar-accent-border: var(--sidebar-accent-border);
   --color-sidebar-ring: hsl(var(--sidebar-ring));
 
+  /* Extended semantic tokens */
+  --color-achievement: hsl(var(--achievement));
+  --color-success: hsl(var(--success));
+  --color-warning: hsl(var(--warning));
+  --color-surface: hsl(var(--surface));
+
   --font-sans: var(--app-font-sans);
   --font-mono: var(--app-font-mono);
 
-  --radius-sm: calc(var(--radius) - 4px);
+  --radius-sm: calc(var(--radius) - 6px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 6px);
 }
 
-/* Base Light Mode - Forced into a dark cockpit aesthetic */
+/* LifeXP Premium Dark — Primary Minimalism + Glassmorphism */
 :root {
-  --background: 240 10% 4%;
-  --foreground: 0 0% 95%;
-  --border: 240 10% 12%;
-  --card: 240 10% 6%;
-  --card-foreground: 0 0% 95%;
-  --card-border: 240 10% 15%;
-  --popover: 240 10% 6%;
-  --popover-foreground: 0 0% 95%;
-  --popover-border: 240 10% 15%;
-  
-  /* Vivid Primary - Electric Indigo */
-  --primary: 255 85% 65%;
-  --primary-foreground: 0 0% 100%;
-  
-  --secondary: 240 10% 15%;
-  --secondary-foreground: 0 0% 95%;
-  
-  --muted: 240 10% 12%;
-  --muted-foreground: 240 5% 65%;
-  
-  --accent: 255 85% 65%;
+  /* Core backgrounds */
+  --background: 231 11% 12%;       /* #1B1C22 */
+  --foreground: 0 0% 100%;         /* #FFFFFF */
+  --surface: 226 15% 17%;          /* #252832 secondary surface */
+  --border: 223 11% 25%;           /* #3A3E48 */
+
+  /* Card */
+  --card: 223 14% 20%;             /* #2D313B */
+  --card-foreground: 0 0% 100%;
+  --card-border: 223 11% 27%;      /* slightly lighter */
+
+  /* Popover */
+  --popover: 226 15% 17%;          /* #252832 */
+  --popover-foreground: 0 0% 100%;
+  --popover-border: 223 11% 25%;
+
+  /* Primary — Golden Yellow XP accent */
+  --primary: 45 100% 58%;          /* #FFC928 */
+  --primary-foreground: 231 25% 8%;/* dark text on gold */
+
+  /* Secondary — dark elevated surface */
+  --secondary: 226 15% 17%;        /* #252832 */
+  --secondary-foreground: 0 0% 100%;
+
+  /* Muted */
+  --muted: 226 15% 17%;
+  --muted-foreground: 218 9% 64%;  /* #9AA0AA */
+
+  /* Accent — Progress Purple */
+  --accent: 258 90% 66%;           /* #8B5CF6 */
   --accent-foreground: 0 0% 100%;
-  
-  --destructive: 350 80% 55%;
+
+  /* Destructive */
+  --destructive: 0 84% 60%;        /* #EF4444 */
   --destructive-foreground: 0 0% 100%;
-  
-  --input: 240 10% 12%;
-  --ring: 255 85% 65%;
-  
-  --sidebar: 240 10% 4%;
-  --sidebar-foreground: 0 0% 95%;
-  --sidebar-border: 240 10% 12%;
-  --sidebar-primary: 255 85% 65%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 240 10% 15%;
-  --sidebar-accent-foreground: 0 0% 95%;
-  --sidebar-ring: 255 85% 65%;
+
+  /* Extended */
+  --achievement: 348 100% 68%;     /* #FF5E7E */
+  --success: 142 69% 58%;          /* #4ADE80 */
+  --warning: 38 92% 50%;           /* #F59E0B */
+
+  --input: 223 11% 25%;
+  --ring: 45 100% 58%;
+
+  /* Sidebar */
+  --sidebar: 231 13% 9%;
+  --sidebar-foreground: 0 0% 100%;
+  --sidebar-border: 223 11% 20%;
+  --sidebar-primary: 45 100% 58%;
+  --sidebar-primary-foreground: 231 25% 8%;
+  --sidebar-accent: 226 15% 17%;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --sidebar-ring: 45 100% 58%;
 
   --app-font-sans: 'Space Grotesk', 'Inter', sans-serif;
   --app-font-mono: 'Spline Sans Mono', monospace;
-  --radius: 0.5rem;
-  
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
-  --shadow: 0 4px 6px rgba(0,0,0,0.4), 0 1px 3px rgba(0,0,0,0.5);
-  --shadow-md: 0 10px 15px rgba(0,0,0,0.4), 0 4px 6px rgba(0,0,0,0.5);
-  --shadow-lg: 0 20px 25px rgba(0,0,0,0.4), 0 10px 10px rgba(0,0,0,0.5);
+
+  /* 18px large rounded corners */
+  --radius: 1.125rem;
+
+  /* Elevation shadows for dark mode */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow: 0 4px 12px rgba(0,0,0,0.4), 0 1px 4px rgba(0,0,0,0.5);
+  --shadow-md: 0 8px 24px rgba(0,0,0,0.4), 0 4px 8px rgba(0,0,0,0.5);
+  --shadow-lg: 0 20px 40px rgba(0,0,0,0.5), 0 8px 16px rgba(0,0,0,0.5);
 
   --opaque-button-border-intensity: 10;
 }
 
 .dark {
-  /* Inherits from :root since we're using a dark default */
+  /* Inherits root — we are always dark */
 }
 
 @layer base {
@@ -122,63 +147,85 @@
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
-  
   h1, h2, h3, h4, h5, h6 {
     @apply tracking-tight;
   }
 }
 
 @layer utilities {
+  /* Glow utilities — now gold */
   .text-glow {
-    text-shadow: 0 0 10px hsl(var(--primary) / 0.5);
+    text-shadow: 0 0 20px hsl(var(--primary) / 0.4);
   }
   .bg-glow {
-    box-shadow: 0 0 20px hsl(var(--primary) / 0.2);
+    box-shadow: 0 0 24px hsl(var(--primary) / 0.25);
   }
-  
-  /* Attribute Colors */
-  .attr-strength { --attr-color: 350 85% 60%; } /* Red */
-  .attr-endurance { --attr-color: 25 95% 55%; }  /* Orange */
-  .attr-mobility { --attr-color: 45 100% 55%; }  /* Yellow */
-  .attr-nutrition { --attr-color: 150 75% 50%; } /* Green */
-  .attr-recovery { --attr-color: 190 85% 55%; }  /* Cyan */
-  .attr-discipline { --attr-color: 220 85% 60%; } /* Blue */
-  .attr-knowledge { --attr-color: 275 85% 65%; } /* Purple */
-  
-  .text-attr { color: hsl(var(--attr-color)); }
-  .bg-attr { background-color: hsl(var(--attr-color)); }
+  .accent-glow {
+    box-shadow: 0 0 24px hsl(var(--accent) / 0.3);
+  }
+  .achievement-glow {
+    box-shadow: 0 0 24px hsl(var(--achievement) / 0.3);
+  }
+
+  /* Glass surface */
+  .glass {
+    background: hsl(var(--card) / 0.6);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid hsl(var(--card-border) / 0.8);
+  }
+
+  /* Attribute colors */
+  .attr-strength   { --attr-color: 350 85% 60%; }
+  .attr-endurance  { --attr-color: 25 95% 55%; }
+  .attr-mobility   { --attr-color: 45 100% 55%; }
+  .attr-nutrition  { --attr-color: 150 75% 50%; }
+  .attr-recovery   { --attr-color: 190 85% 55%; }
+  .attr-discipline { --attr-color: 220 85% 60%; }
+  .attr-knowledge  { --attr-color: 275 85% 65%; }
+
+  .text-attr   { color: hsl(var(--attr-color)); }
+  .bg-attr     { background-color: hsl(var(--attr-color)); }
   .border-attr { border-color: hsl(var(--attr-color)); }
-  .fill-attr { fill: hsl(var(--attr-color)); }
-  .shadow-attr { box-shadow: 0 0 15px hsl(var(--attr-color) / 0.3); }
+  .fill-attr   { fill: hsl(var(--attr-color)); }
+  .shadow-attr { box-shadow: 0 0 16px hsl(var(--attr-color) / 0.3); }
 }
 
-/* Animations */
+/* ── Animations ───────────────────────────────────────────── */
 @keyframes dash {
-  to {
-    stroke-dashoffset: 0;
-  }
+  to { stroke-dashoffset: 0; }
 }
 .animate-dash {
-  animation: dash 1.5s ease-out forwards;
+  animation: dash 1.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 @keyframes slide-up-fade {
-  0% {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  0%   { opacity: 0; transform: translateY(16px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
-
 .animate-slide-up-fade {
-  animation: slide-up-fade 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: slide-up-fade 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.stagger-1 { animation-delay: 100ms; opacity: 0; }
-.stagger-2 { animation-delay: 200ms; opacity: 0; }
-.stagger-3 { animation-delay: 300ms; opacity: 0; }
-.stagger-4 { animation-delay: 400ms; opacity: 0; }
-.stagger-5 { animation-delay: 500ms; opacity: 0; }
+@keyframes scale-in {
+  0%   { opacity: 0; transform: scale(0.92); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.animate-scale-in {
+  animation: scale-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes xp-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+.animate-xp-pulse {
+  animation: xp-pulse 2s ease-in-out infinite;
+}
+
+/* Stagger delays */
+.stagger-1 { animation-delay: 80ms;  opacity: 0; }
+.stagger-2 { animation-delay: 160ms; opacity: 0; }
+.stagger-3 { animation-delay: 240ms; opacity: 0; }
+.stagger-4 { animation-delay: 320ms; opacity: 0; }
+.stagger-5 { animation-delay: 400ms; opacity: 0; }
