@@ -6,6 +6,9 @@ import { logger } from "./lib/logger";
 
 const app: Express = express();
 
+// Replit's proxy sets X-Forwarded-For; trust it so rate-limiting works correctly.
+app.set("trust proxy", 1);
+
 app.use(
   pinoHttp({
     logger,

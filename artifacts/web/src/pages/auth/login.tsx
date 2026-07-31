@@ -6,14 +6,14 @@ import * as z from "zod";
 import { useSignin } from "@workspace/api-client-react";
 import { setTokens } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Zap } from "lucide-react";
+import { Loader2, Zap, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useQueryClient } from "@tanstack/react-query";
 
-/* ── Animated floating dots ─────────────────────────────────────────────── */
-function FloatingDots() {
+/* ── Particle field ─────────────────────────────────────────────────────── */
+function ParticleField() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -24,8 +24,13 @@ function FloatingDots() {
 
     let animId: number;
 
-    type Dot = { x: number; y: number; vx: number; vy: number; r: number; o: number };
-    const dots: Dot[] = [];
+    type Particle = {
+      x: number; y: number;
+      vx: number; vy: number;
+      r: number; o: number; pulse: number; phase: number;
+    };
+
+    const particles: Particle[] = [];
 
     const resize = () => {
       canvas.width  = window.innerWidth;
@@ -34,30 +39,36 @@ function FloatingDots() {
     resize();
     window.addEventListener("resize", resize);
 
-    for (let i = 0; i < 130; i++) {
-      dots.push({
-        x:  Math.random() * canvas.width,
-        y:  Math.random() * canvas.height,
-        vx: (Math.random() - 0.5) * 0.25,
-        vy: (Math.random() - 0.5) * 0.25,
-        r:  Math.random() * 1.2 + 0.4,
-        o:  Math.random() * 0.35 + 0.08,
+    for (let i = 0; i < 160; i++) {
+      particles.push({
+        x:     Math.random() * window.innerWidth,
+        y:     Math.random() * window.innerHeight,
+        vx:    (Math.random() - 0.5) * 0.18,
+        vy:    (Math.random() - 0.5) * 0.18,
+        r:     Math.random() * 1.4 + 0.3,
+        o:     Math.random() * 0.45 + 0.06,
+        pulse: Math.random() * 0.012 + 0.004,
+        phase: Math.random() * Math.PI * 2,
       });
     }
 
+    let t = 0;
     const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      for (const d of dots) {
-        d.x += d.vx;
-        d.y += d.vy;
-        if (d.x < 0)             d.x += canvas.width;
-        if (d.x > canvas.width)  d.x -= canvas.width;
-        if (d.y < 0)             d.y += canvas.height;
-        if (d.y > canvas.height) d.y -= canvas.height;
+      t += 1;
 
+      for (const p of particles) {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0)              p.x += canvas.width;
+        if (p.x > canvas.width)   p.x -= canvas.width;
+        if (p.y < 0)              p.y += canvas.height;
+        if (p.y > canvas.height)  p.y -= canvas.height;
+
+        const opacity = p.o * (0.6 + 0.4 * Math.sin(t * p.pulse + p.phase));
         ctx.beginPath();
-        ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255,255,255,${d.o})`;
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,255,255,${opacity})`;
         ctx.fill();
       }
       animId = requestAnimationFrame(draw);
@@ -78,14 +89,14 @@ function FloatingDots() {
   );
 }
 
-/* ── Login schema ────────────────────────────────────────────────────────── */
+/* ── Schema ─────────────────────────────────────────────────────────────── */
 const loginSchema = z.object({
   email:    z.string().email("Enter a valid email"),
   password: z.string().min(8, "At least 8 characters"),
 });
 type LoginValues = z.infer<typeof loginSchema>;
 
-/* ── Page ────────────────────────────────────────────────────────────────── */
+/* ── Page ───────────────────────────────────────────────────────────────── */
 export default function Login() {
   const [, setLocation] = useLocation();
   const { toast }       = useToast();
@@ -102,8 +113,6 @@ export default function Login() {
     signinMutation.mutate({ data }, {
       onSuccess: (res) => {
         setTokens(res.accessToken, res.refreshToken);
-        // Clear any stale auth error so the dashboard layout doesn't
-        // immediately see a 401 and bounce the user back here.
         queryClient.removeQueries({ queryKey: ["/api/users/me"] });
         setLocation("/dashboard");
       },
@@ -115,119 +124,196 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-[#030305] relative overflow-hidden">
 
-      {/* ── Animated dots ── */}
-      <FloatingDots />
+      {/* Particle field */}
+      <ParticleField />
 
-      {/* ── Subtle depth gradients ── */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_55%_at_50%_0%,rgba(255,255,255,0.035),transparent)]" />
-        <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-[radial-gradient(ellipse_60%_60%_at_50%_100%,rgba(255,255,255,0.018),transparent)]" />
+      {/* Atmospheric glow orbs */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div
+          className="absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[500px] rounded-full opacity-[0.07]"
+          style={{ background: "radial-gradient(circle, rgba(255,255,255,1) 0%, transparent 70%)" }}
+        />
+        <div
+          className="absolute bottom-0 left-0 w-[400px] h-[400px] -translate-x-1/2 translate-y-1/2 rounded-full opacity-[0.04]"
+          style={{ background: "radial-gradient(circle, rgba(255,255,255,1) 0%, transparent 70%)" }}
+        />
+        <div
+          className="absolute bottom-0 right-0 w-[400px] h-[400px] translate-x-1/2 translate-y-1/2 rounded-full opacity-[0.04]"
+          style={{ background: "radial-gradient(circle, rgba(255,255,255,1) 0%, transparent 70%)" }}
+        />
       </div>
 
-      {/* ── Card ── */}
-      <div className="w-full max-w-sm px-5 animate-slide-up-fade relative z-10">
+      {/* Horizontal scan line */}
+      <div className="absolute inset-x-0 top-1/2 h-px bg-gradient-to-r from-transparent via-white/[0.04] to-transparent pointer-events-none" />
 
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="w-13 h-13 rounded-2xl bg-white/90 backdrop-blur-sm flex items-center justify-center mx-auto mb-5 shadow-[0_0_40px_rgba(255,255,255,0.18),0_4px_16px_rgba(0,0,0,0.6)]">
-            <Zap className="w-6 h-6 text-black" fill="currentColor" />
+      {/* Card */}
+      <div className="relative z-10 w-full max-w-[400px] px-5 animate-slide-up-fade">
+
+        {/* Logo mark */}
+        <div className="flex flex-col items-center mb-10">
+          <div className="relative mb-6">
+            {/* Outer glow ring */}
+            <div className="absolute inset-0 rounded-[22px] blur-xl opacity-30 bg-white scale-125" />
+            {/* Halo ring */}
+            <div
+              className="absolute -inset-[5px] rounded-[26px] opacity-20"
+              style={{ border: "1px solid rgba(255,255,255,0.6)" }}
+            />
+            <div
+              className="relative w-[56px] h-[56px] rounded-[18px] flex items-center justify-center"
+              style={{
+                background:  "linear-gradient(135deg, #ffffff 0%, #d4d4d4 100%)",
+                boxShadow:   "0 0 32px rgba(255,255,255,0.2), 0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.9)",
+              }}
+            >
+              <Zap className="w-[26px] h-[26px] text-black" fill="currentColor" />
+            </div>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight mb-1 text-glow">Welcome back</h1>
-          <p className="text-sm text-white/40">Sign in to continue your journey</p>
+
+          <h1
+            className="text-[28px] font-bold tracking-tight mb-2"
+            style={{ textShadow: "0 0 40px rgba(255,255,255,0.2)" }}
+          >
+            Welcome back
+          </h1>
+          <p className="text-[13px] text-white/35 tracking-wide">
+            Continue your journey
+          </p>
         </div>
 
-        {/* Liquid glass form card */}
+        {/* Glass card */}
         <div
-          className="rounded-2xl p-7 elevation-3"
+          className="relative rounded-3xl overflow-hidden"
           style={{
-            background:       "rgba(255,255,255,0.055)",
-            backdropFilter:   "blur(48px) saturate(200%)",
-            WebkitBackdropFilter: "blur(48px) saturate(200%)",
-            border:           "1px solid rgba(255,255,255,0.13)",
+            background:           "rgba(255,255,255,0.042)",
+            backdropFilter:       "blur(60px) saturate(180%)",
+            WebkitBackdropFilter: "blur(60px) saturate(180%)",
+            border:               "1px solid rgba(255,255,255,0.10)",
             boxShadow: [
-              "0 8px 40px rgba(0,0,0,0.75)",
-              "0 2px 8px rgba(0,0,0,0.6)",
-              "inset 0 1px 0 rgba(255,255,255,0.12)",
+              "0 32px 64px rgba(0,0,0,0.8)",
+              "0 8px 24px rgba(0,0,0,0.6)",
+              "inset 0 1px 0 rgba(255,255,255,0.13)",
               "inset 0 -1px 0 rgba(255,255,255,0.03)",
+              "inset 1px 0 0 rgba(255,255,255,0.04)",
+              "inset -1px 0 0 rgba(255,255,255,0.04)",
             ].join(","),
           }}
         >
-          {/* Inner top-light shimmer */}
-          <div className="absolute inset-x-0 top-0 h-px rounded-t-2xl bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
+          {/* Top shimmer line */}
+          <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+          {/* Inner corner highlights */}
+          <div className="absolute top-0 left-0 w-24 h-24 rounded-tl-3xl opacity-[0.03]"
+               style={{ background: "radial-gradient(circle at 0% 0%, white, transparent)" }} />
+          <div className="absolute top-0 right-0 w-24 h-24 rounded-tr-3xl opacity-[0.03]"
+               style={{ background: "radial-gradient(circle at 100% 0%, white, transparent)" }} />
 
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+          <div className="p-8">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
 
-              <FormField control={form.control} name="email" render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-[11px] font-semibold uppercase tracking-widest text-white/40">
-                    Email
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="you@example.com"
-                      {...field}
-                      className="h-11 rounded-xl text-sm"
-                      style={{
-                        background:   "rgba(255,255,255,0.05)",
-                        border:       "1px solid rgba(255,255,255,0.10)",
-                        backdropFilter: "blur(8px)",
-                      }}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
+                <FormField control={form.control} name="email" render={({ field }) => (
+                  <FormItem className="space-y-2">
+                    <FormLabel className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/35">
+                      Email address
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="you@example.com"
+                        {...field}
+                        className="h-12 rounded-xl text-sm px-4 placeholder:text-white/20 focus-visible:ring-0 focus-visible:ring-offset-0 transition-all duration-200"
+                        style={{
+                          background:           "rgba(255,255,255,0.048)",
+                          border:               "1px solid rgba(255,255,255,0.09)",
+                          backdropFilter:       "blur(8px)",
+                          WebkitBackdropFilter: "blur(8px)",
+                          color:                "rgba(255,255,255,0.92)",
+                          boxShadow:            "inset 0 1px 0 rgba(255,255,255,0.04)",
+                        }}
+                        onFocus={e => {
+                          e.currentTarget.style.border = "1px solid rgba(255,255,255,0.22)";
+                          e.currentTarget.style.background = "rgba(255,255,255,0.07)";
+                        }}
+                        onBlur={e => {
+                          e.currentTarget.style.border = "1px solid rgba(255,255,255,0.09)";
+                          e.currentTarget.style.background = "rgba(255,255,255,0.048)";
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage className="text-xs text-red-400/80" />
+                  </FormItem>
+                )} />
 
-              <FormField control={form.control} name="password" render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-[11px] font-semibold uppercase tracking-widest text-white/40">
-                    Password
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      type="password"
-                      placeholder="••••••••"
-                      {...field}
-                      className="h-11 rounded-xl text-sm"
-                      style={{
-                        background:   "rgba(255,255,255,0.05)",
-                        border:       "1px solid rgba(255,255,255,0.10)",
-                        backdropFilter: "blur(8px)",
-                      }}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
+                <FormField control={form.control} name="password" render={({ field }) => (
+                  <FormItem className="space-y-2">
+                    <FormLabel className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/35">
+                      Password
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        {...field}
+                        className="h-12 rounded-xl text-sm px-4 placeholder:text-white/20 focus-visible:ring-0 focus-visible:ring-offset-0 transition-all duration-200"
+                        style={{
+                          background:           "rgba(255,255,255,0.048)",
+                          border:               "1px solid rgba(255,255,255,0.09)",
+                          backdropFilter:       "blur(8px)",
+                          WebkitBackdropFilter: "blur(8px)",
+                          color:                "rgba(255,255,255,0.92)",
+                          boxShadow:            "inset 0 1px 0 rgba(255,255,255,0.04)",
+                        }}
+                        onFocus={e => {
+                          e.currentTarget.style.border = "1px solid rgba(255,255,255,0.22)";
+                          e.currentTarget.style.background = "rgba(255,255,255,0.07)";
+                        }}
+                        onBlur={e => {
+                          e.currentTarget.style.border = "1px solid rgba(255,255,255,0.09)";
+                          e.currentTarget.style.background = "rgba(255,255,255,0.048)";
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage className="text-xs text-red-400/80" />
+                  </FormItem>
+                )} />
 
-              <Button
-                type="submit"
-                className="w-full h-11 text-sm font-bold mt-1 rounded-xl transition-all duration-200"
-                style={{
-                  background: "rgba(255,255,255,0.95)",
-                  color:      "#0a0a0a",
-                  boxShadow:  "0 2px 16px rgba(255,255,255,0.15), inset 0 1px 0 rgba(255,255,255,0.5)",
-                }}
-                disabled={signinMutation.isPending}
-              >
-                {signinMutation.isPending
-                  ? <Loader2 className="w-4 h-4 animate-spin" />
-                  : "Sign In"}
-              </Button>
-            </form>
-          </Form>
+                <div className="pt-1">
+                  <Button
+                    type="submit"
+                    className="w-full h-12 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center gap-2 transition-all duration-200 group"
+                    style={{
+                      background:  "linear-gradient(135deg, rgba(255,255,255,0.96) 0%, rgba(220,220,220,0.92) 100%)",
+                      color:       "#080808",
+                      border:      "none",
+                      boxShadow:   "0 4px 24px rgba(255,255,255,0.12), 0 2px 8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.8)",
+                    }}
+                    disabled={signinMutation.isPending}
+                  >
+                    {signinMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        Sign In
+                        <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+              </form>
+            </Form>
+          </div>
         </div>
 
-        <p className="text-center mt-5 text-sm text-white/35">
-          New here?{" "}
+        {/* Footer */}
+        <p className="text-center mt-6 text-[13px] text-white/30">
+          Don't have an account?{" "}
           <Link
             href="/auth/register"
-            className="text-white/80 font-semibold hover:text-white transition-colors"
+            className="text-white/65 font-semibold hover:text-white/90 transition-colors duration-150 underline underline-offset-2 decoration-white/20 hover:decoration-white/40"
           >
-            Create account
+            Create one free
           </Link>
         </p>
       </div>
