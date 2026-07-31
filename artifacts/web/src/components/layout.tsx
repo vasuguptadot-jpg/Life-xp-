@@ -1,8 +1,9 @@
 import { Link, useLocation } from "wouter";
 import { useGetMe } from "@workspace/api-client-react";
-import { LayoutDashboard, Target, User as UserIcon, Loader2, Zap } from "lucide-react";
+import { LayoutDashboard, Target, User as UserIcon, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEffect } from "react";
+import { AppSkeleton } from "@/components/app-skeleton";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -19,11 +20,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   }, [isError, setLocation]);
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-foreground/60" />
-      </div>
-    );
+    return <AppSkeleton />;
   }
 
   if (!user) return null;

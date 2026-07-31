@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Zap, TrendingUp, ArrowUp, Dumbbell, Flame, Target, Heart, Shield, Star, Brain, ChevronUp, ChevronDown } from "lucide-react";
 import { formatXp, getAttributeColorClass, cn } from "@/lib/utils";
 import { useMemo } from "react";
+import { DashboardSkeleton } from "@/components/app-skeleton";
 
 function getLevelProgress(totalXp: number, level: number) {
   const prev = level > 1 ? (level - 1) * 1000 : 0;
@@ -47,9 +48,7 @@ export default function Dashboard() {
   if (isLoading || !prog) {
     return (
       <AppLayout>
-        <div className="flex h-[50vh] items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-white/40" />
-        </div>
+        <DashboardSkeleton />
       </AppLayout>
     );
   }

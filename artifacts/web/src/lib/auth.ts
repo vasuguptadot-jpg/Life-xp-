@@ -1,9 +1,9 @@
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 
 export function initAuth() {
+  // Return the raw token — custom-fetch.ts wraps it with "Bearer " automatically.
   setAuthTokenGetter(() => {
-    const token = localStorage.getItem("accessToken");
-    return token ? `Bearer ${token}` : null;
+    return localStorage.getItem("accessToken");
   });
 }
 
