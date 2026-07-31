@@ -3,7 +3,7 @@ import { setAuthTokenGetter } from "@workspace/api-client-react";
 export function initAuth() {
   setAuthTokenGetter(() => {
     const token = localStorage.getItem("accessToken");
-    return token ? `Bearer ${token}` : undefined;
+    return token ? `Bearer ${token}` : null;
   });
 }
 
