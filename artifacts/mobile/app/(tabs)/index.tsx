@@ -172,7 +172,7 @@ export default function DashboardScreen() {
                             +{tx.amount} XP
                           </Text>
                           <Text style={[styles.txTime, { color: colors.mutedForeground }]}>
-                            {formatRelativeTime(tx.createdAt)}
+                            {formatRelativeTime(tx.createdAt ?? '')}
                           </Text>
                         </View>
                       </View>

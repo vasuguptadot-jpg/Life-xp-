@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import {
+  getGetArchetypesQueryKey,
   getGetOnboardingQueryKey,
   getGetProgressionSummaryQueryKey,
   useCompleteOnboarding,
@@ -62,7 +63,7 @@ export default function OnboardingScreen() {
   const setGoals = useSetGoals();
   const selectArchetype = useSelectArchetype();
   const completeOnboarding = useCompleteOnboarding();
-  const archetypes = useGetArchetypes({ query: { enabled: step === 4 } });
+  const archetypes = useGetArchetypes({ query: { enabled: step === 4, queryKey: getGetArchetypesQueryKey() } });
 
   const isLoading =
     advanceStep.isPending ||
@@ -100,7 +101,7 @@ export default function OnboardingScreen() {
       await advanceStep.mutateAsync({ data: { currentStep: 5 } });
       setStep(5);
     } else if (step === 5) {
-      await completeOnboarding.mutateAsync({});
+      await completeOnboarding.mutateAsync();
       queryClient.invalidateQueries({ queryKey: getGetOnboardingQueryKey() });
       queryClient.invalidateQueries({ queryKey: getGetProgressionSummaryQueryKey() });
       router.replace('/(tabs)');

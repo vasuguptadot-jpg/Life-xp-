@@ -13,6 +13,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   getGetMyQuestsQueryKey,
+  getGetQuestCatalogueQueryKey,
+  getGetRecommendedQuestsQueryKey,
   useAssignQuest,
   useCompleteQuest,
   useGetMyQuests,
@@ -33,10 +35,10 @@ export default function QuestsScreen() {
   const [completingId, setCompletingId] = useState<string | null>(null);
 
   const myQuests = useGetMyQuests();
-  const catalogue = useGetQuestCatalogue({ query: { enabled: activeTab === 'discover' } });
+  const catalogue = useGetQuestCatalogue({ query: { enabled: activeTab === 'discover', queryKey: getGetQuestCatalogueQueryKey() } });
   const recommended = useGetRecommendedQuests(
     { limit: 5 },
-    { query: { enabled: activeTab === 'discover' } },
+    { query: { enabled: activeTab === 'discover', queryKey: getGetRecommendedQuestsQueryKey({ limit: 5 }) } },
   );
 
   const assignMutation = useAssignQuest();

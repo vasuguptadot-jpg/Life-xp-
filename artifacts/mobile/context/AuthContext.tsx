@@ -21,7 +21,7 @@ const STORAGE_KEYS = {
 // Register the async token getter once — reads latest value from AsyncStorage
 setAuthTokenGetter(async () => {
   const token = await AsyncStorage.getItem(STORAGE_KEYS.ACCESS);
-  return token ?? undefined;
+  return token ?? null;
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {

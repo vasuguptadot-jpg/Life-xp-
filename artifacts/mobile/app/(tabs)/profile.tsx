@@ -83,7 +83,7 @@ export default function ProfileScreen() {
 
   const doDelete = async () => {
     deleteMe.mutate(
-      {},
+      undefined,
       {
         onSuccess: async () => {
           await auth.logout();
