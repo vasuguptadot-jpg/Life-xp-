@@ -391,6 +391,31 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /progression/attribute-history:
+    get:
+      operationId: getAttributeHistory
+      tags: [progression]
+      summary: Get attribute change history
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Attribute history entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AttributeHistoryEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   # ── Quests ────────────────────────────────────────────────────────────────────
   /quests:
     get:
@@ -538,6 +563,39 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserQuest"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /quests/{id}/abandon:
+    post:
+      operationId: abandonQuest
+      tags: [quests]
+      summary: Abandon an active quest
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Quest abandoned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  quest:
+                    $ref: "#/components/schemas/UserQuest"
+                required: [success, quest]
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -913,13 +971,41 @@ components:
           type: integer
         sourceType:
           type: string
+        sourceId:
+          type: string
+          nullable: true
         category:
+          type: string
+          nullable: true
+        description:
           type: string
           nullable: true
         createdAt:
           type: string
           format: date-time
       required: [id, userId, amount, sourceType]
+
+    AttributeHistoryEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        attribute:
+          type: string
+          enum: [STRENGTH, ENDURANCE, MOBILITY, NUTRITION, RECOVERY, DISCIPLINE, KNOWLEDGE]
+        delta:
+          type: integer
+        sourceType:
+          type: string
+        sourceId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, userId, attribute, delta, sourceType, createdAt]
 
     ProgressionSummary:
       type: object
@@ -946,6 +1032,9 @@ components:
           type: string
         description:
           type: string
+        instructions:
+          type: string
+          nullable: true
         category:
           type: string
         questType:
@@ -954,11 +1043,29 @@ components:
         targetValue:
           type: string
           nullable: true
+        targetUnit:
+          type: string
+          nullable: true
+        difficulty:
+          type: string
+          enum: [EASY, MEDIUM, HARD, EXPERT]
+          nullable: true
         status:
           type: string
           enum: [ACTIVE, INACTIVE, ARCHIVED]
         progressionConfig:
           type: object
+          nullable: true
+        verificationRequirement:
+          type: string
+          nullable: true
+        primaryAttributes:
+          type: array
+          items:
+            type: string
+          nullable: true
+        xpReward:
+          type: integer
           nullable: true
         createdAt:
           type: string

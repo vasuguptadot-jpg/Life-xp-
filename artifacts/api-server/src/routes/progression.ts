@@ -12,6 +12,7 @@ import {
   xpTransactionsTable,
   userLevelsTable,
   userAttributesTable,
+  attributeHistoryTable,
 } from "@workspace/db/schema";
 import { requireAuth } from "../lib/auth";
 
@@ -35,6 +36,21 @@ router.get("/summary", async (req, res) => {
 
   const level = levelRows[0] ?? { currentLevel: 1, totalXp: 0 };
   res.json({ level, attributes, recentTransactions: recentTx });
+});
+
+// GET /api/progression/attribute-history
+router.get("/attribute-history", async (req, res) => {
+  const userId = req.user!.sub;
+  const limit = Math.min(Number(req.query.limit) || 50, 200);
+
+  const history = await db
+    .select()
+    .from(attributeHistoryTable)
+    .where(eq(attributeHistoryTable.userId, userId))
+    .orderBy(desc(attributeHistoryTable.createdAt))
+    .limit(limit);
+
+  res.json(history);
 });
 
 export default router;

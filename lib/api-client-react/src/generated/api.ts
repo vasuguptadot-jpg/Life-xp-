@@ -20,9 +20,12 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AbandonQuest200,
   Archetype,
+  AttributeHistoryEntry,
   BadRequestResponse,
   ConflictResponse,
+  GetAttributeHistoryParams,
   GetRecommendedQuestsParams,
   GoalsRequest,
   HealthStatus,
@@ -1325,6 +1328,90 @@ export function useGetProgressionSummary<TData = Awaited<ReturnType<typeof getPr
 
 
 
+export const getGetAttributeHistoryUrl = (params?: GetAttributeHistoryParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/progression/attribute-history?${stringifiedParams}` : `/api/progression/attribute-history`
+}
+
+/**
+ * @summary Get attribute change history
+ */
+export const getAttributeHistory = async (params?: GetAttributeHistoryParams, options?: RequestInit): Promise<AttributeHistoryEntry[]> => {
+
+  return customFetch<AttributeHistoryEntry[]>(getGetAttributeHistoryUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAttributeHistoryQueryKey = (params?: GetAttributeHistoryParams,) => {
+    return [
+    `/api/progression/attribute-history`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetAttributeHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getAttributeHistory>>, TError = ErrorType<UnauthorizedResponse>>(params?: GetAttributeHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAttributeHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAttributeHistoryQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAttributeHistory>>> = ({ signal }) => getAttributeHistory(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAttributeHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAttributeHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getAttributeHistory>>>
+export type GetAttributeHistoryQueryError = ErrorType<UnauthorizedResponse>
+
+
+/**
+ * @summary Get attribute change history
+ */
+
+export function useGetAttributeHistory<TData = Awaited<ReturnType<typeof getAttributeHistory>>, TError = ErrorType<UnauthorizedResponse>>(
+ params?: GetAttributeHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAttributeHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAttributeHistoryQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getGetMyQuestsUrl = () => {
 
 
@@ -1781,6 +1868,77 @@ export const useUpdateQuestProgress = <TError = ErrorType<BadRequestResponse | U
         TContext
       > => {
       return useMutation(getUpdateQuestProgressMutationOptions(options));
+    }
+
+export const getAbandonQuestUrl = (id: string,) => {
+
+
+
+
+  return `/api/quests/${id}/abandon`
+}
+
+/**
+ * @summary Abandon an active quest
+ */
+export const abandonQuest = async (id: string, options?: RequestInit): Promise<AbandonQuest200> => {
+
+  return customFetch<AbandonQuest200>(getAbandonQuestUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getAbandonQuestMutationOptions = <TError = ErrorType<BadRequestResponse | UnauthorizedResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof abandonQuest>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof abandonQuest>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['abandonQuest'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof abandonQuest>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  abandonQuest(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AbandonQuestMutationResult = NonNullable<Awaited<ReturnType<typeof abandonQuest>>>
+
+    export type AbandonQuestMutationError = ErrorType<BadRequestResponse | UnauthorizedResponse | NotFoundResponse>
+
+    /**
+ * @summary Abandon an active quest
+ */
+export const useAbandonQuest = <TError = ErrorType<BadRequestResponse | UnauthorizedResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof abandonQuest>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof abandonQuest>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getAbandonQuestMutationOptions(options));
     }
 
 export const getCompleteQuestUrl = (id: string,) => {

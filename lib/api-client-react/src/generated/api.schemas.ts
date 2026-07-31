@@ -185,8 +185,33 @@ export interface XpTransaction {
   userId: string;
   amount: number;
   sourceType: string;
+  sourceId?: string | null;
   category?: string | null;
+  description?: string | null;
   createdAt?: string;
+}
+
+export type AttributeHistoryEntryAttribute = typeof AttributeHistoryEntryAttribute[keyof typeof AttributeHistoryEntryAttribute];
+
+
+export const AttributeHistoryEntryAttribute = {
+  STRENGTH: 'STRENGTH',
+  ENDURANCE: 'ENDURANCE',
+  MOBILITY: 'MOBILITY',
+  NUTRITION: 'NUTRITION',
+  RECOVERY: 'RECOVERY',
+  DISCIPLINE: 'DISCIPLINE',
+  KNOWLEDGE: 'KNOWLEDGE',
+} as const;
+
+export interface AttributeHistoryEntry {
+  id: string;
+  userId: string;
+  attribute: AttributeHistoryEntryAttribute;
+  delta: number;
+  sourceType: string;
+  sourceId?: string | null;
+  createdAt: string;
 }
 
 export interface ProgressionSummary {
@@ -205,6 +230,16 @@ export const QuestTemplateQuestType = {
   CHALLENGE: 'CHALLENGE',
 } as const;
 
+export type QuestTemplateDifficulty = typeof QuestTemplateDifficulty[keyof typeof QuestTemplateDifficulty] | null;
+
+
+export const QuestTemplateDifficulty = {
+  EASY: 'EASY',
+  MEDIUM: 'MEDIUM',
+  HARD: 'HARD',
+  EXPERT: 'EXPERT',
+} as const;
+
 export type QuestTemplateStatus = typeof QuestTemplateStatus[keyof typeof QuestTemplateStatus];
 
 
@@ -220,11 +255,17 @@ export interface QuestTemplate {
   id: string;
   title: string;
   description: string;
+  instructions?: string | null;
   category: string;
   questType: QuestTemplateQuestType;
   targetValue?: string | null;
+  targetUnit?: string | null;
+  difficulty?: QuestTemplateDifficulty;
   status: QuestTemplateStatus;
   progressionConfig?: QuestTemplateProgressionConfig;
+  verificationRequirement?: string | null;
+  primaryAttributes?: string[] | null;
+  xpReward?: number | null;
   createdAt?: string;
 }
 
@@ -309,6 +350,10 @@ export type SelectArchetypeBody = {
   archetypeId: string;
 };
 
+export type GetAttributeHistoryParams = {
+limit?: number;
+};
+
 export type GetRecommendedQuestsParams = {
 limit?: number;
 };
@@ -316,5 +361,10 @@ limit?: number;
 export type UpdateQuestProgressBody = {
   /** @minimum 0 */
   progress: number;
+};
+
+export type AbandonQuest200 = {
+  success: boolean;
+  quest: UserQuest;
 };
 

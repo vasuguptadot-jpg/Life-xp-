@@ -295,10 +295,33 @@ export const GetProgressionSummaryResponse = zod.object({
   "userId": zod.string(),
   "amount": zod.number(),
   "sourceType": zod.string(),
+  "sourceId": zod.string().nullish(),
   "category": zod.string().nullish(),
+  "description": zod.string().nullish(),
   "createdAt": zod.coerce.date().optional()
 }))
 })
+
+
+/**
+ * @summary Get attribute change history
+ */
+export const getAttributeHistoryQueryLimitDefault = 50;
+
+export const GetAttributeHistoryQueryParams = zod.object({
+  "limit": zod.coerce.number().default(getAttributeHistoryQueryLimitDefault)
+})
+
+export const GetAttributeHistoryResponseItem = zod.object({
+  "id": zod.string(),
+  "userId": zod.string(),
+  "attribute": zod.enum(['STRENGTH', 'ENDURANCE', 'MOBILITY', 'NUTRITION', 'RECOVERY', 'DISCIPLINE', 'KNOWLEDGE']),
+  "delta": zod.number(),
+  "sourceType": zod.string(),
+  "sourceId": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})
+export const GetAttributeHistoryResponse = zod.array(GetAttributeHistoryResponseItem)
 
 
 /**
@@ -319,13 +342,19 @@ export const GetMyQuestsResponseItem = zod.object({
   "id": zod.string(),
   "title": zod.string(),
   "description": zod.string(),
+  "instructions": zod.string().nullish(),
   "category": zod.string(),
   "questType": zod.enum(['DAILY', 'WEEKLY', 'MILESTONE', 'CHALLENGE']),
   "targetValue": zod.string().nullish(),
+  "targetUnit": zod.string().nullish(),
+  "difficulty": zod.enum(['EASY', 'MEDIUM', 'HARD', 'EXPERT']).nullish(),
   "status": zod.enum(['ACTIVE', 'INACTIVE', 'ARCHIVED']),
   "progressionConfig": zod.looseObject({
 
 }).nullish(),
+  "verificationRequirement": zod.string().nullish(),
+  "primaryAttributes": zod.array(zod.string()).nullish(),
+  "xpReward": zod.number().nullish(),
   "createdAt": zod.coerce.date().optional()
 }).nullish()
 })
@@ -339,13 +368,19 @@ export const GetQuestCatalogueResponseItem = zod.object({
   "id": zod.string(),
   "title": zod.string(),
   "description": zod.string(),
+  "instructions": zod.string().nullish(),
   "category": zod.string(),
   "questType": zod.enum(['DAILY', 'WEEKLY', 'MILESTONE', 'CHALLENGE']),
   "targetValue": zod.string().nullish(),
+  "targetUnit": zod.string().nullish(),
+  "difficulty": zod.enum(['EASY', 'MEDIUM', 'HARD', 'EXPERT']).nullish(),
   "status": zod.enum(['ACTIVE', 'INACTIVE', 'ARCHIVED']),
   "progressionConfig": zod.looseObject({
 
 }).nullish(),
+  "verificationRequirement": zod.string().nullish(),
+  "primaryAttributes": zod.array(zod.string()).nullish(),
+  "xpReward": zod.number().nullish(),
   "createdAt": zod.coerce.date().optional()
 })
 export const GetQuestCatalogueResponse = zod.array(GetQuestCatalogueResponseItem)
@@ -364,13 +399,19 @@ export const GetRecommendedQuestsResponseItem = zod.object({
   "id": zod.string(),
   "title": zod.string(),
   "description": zod.string(),
+  "instructions": zod.string().nullish(),
   "category": zod.string(),
   "questType": zod.enum(['DAILY', 'WEEKLY', 'MILESTONE', 'CHALLENGE']),
   "targetValue": zod.string().nullish(),
+  "targetUnit": zod.string().nullish(),
+  "difficulty": zod.enum(['EASY', 'MEDIUM', 'HARD', 'EXPERT']).nullish(),
   "status": zod.enum(['ACTIVE', 'INACTIVE', 'ARCHIVED']),
   "progressionConfig": zod.looseObject({
 
 }).nullish(),
+  "verificationRequirement": zod.string().nullish(),
+  "primaryAttributes": zod.array(zod.string()).nullish(),
+  "xpReward": zod.number().nullish(),
   "createdAt": zod.coerce.date().optional()
 })
 export const GetRecommendedQuestsResponse = zod.array(GetRecommendedQuestsResponseItem)
@@ -398,13 +439,19 @@ export const AssignQuestResponse = zod.object({
   "id": zod.string(),
   "title": zod.string(),
   "description": zod.string(),
+  "instructions": zod.string().nullish(),
   "category": zod.string(),
   "questType": zod.enum(['DAILY', 'WEEKLY', 'MILESTONE', 'CHALLENGE']),
   "targetValue": zod.string().nullish(),
+  "targetUnit": zod.string().nullish(),
+  "difficulty": zod.enum(['EASY', 'MEDIUM', 'HARD', 'EXPERT']).nullish(),
   "status": zod.enum(['ACTIVE', 'INACTIVE', 'ARCHIVED']),
   "progressionConfig": zod.looseObject({
 
 }).nullish(),
+  "verificationRequirement": zod.string().nullish(),
+  "primaryAttributes": zod.array(zod.string()).nullish(),
+  "xpReward": zod.number().nullish(),
   "createdAt": zod.coerce.date().optional()
 }).nullish()
 })
@@ -432,13 +479,19 @@ export const GetQuestResponse = zod.object({
   "id": zod.string(),
   "title": zod.string(),
   "description": zod.string(),
+  "instructions": zod.string().nullish(),
   "category": zod.string(),
   "questType": zod.enum(['DAILY', 'WEEKLY', 'MILESTONE', 'CHALLENGE']),
   "targetValue": zod.string().nullish(),
+  "targetUnit": zod.string().nullish(),
+  "difficulty": zod.enum(['EASY', 'MEDIUM', 'HARD', 'EXPERT']).nullish(),
   "status": zod.enum(['ACTIVE', 'INACTIVE', 'ARCHIVED']),
   "progressionConfig": zod.looseObject({
 
 }).nullish(),
+  "verificationRequirement": zod.string().nullish(),
+  "primaryAttributes": zod.array(zod.string()).nullish(),
+  "xpReward": zod.number().nullish(),
   "createdAt": zod.coerce.date().optional()
 }).nullish()
 })
@@ -468,6 +521,28 @@ export const UpdateQuestProgressResponse = zod.object({
   "targetValue": zod.string(),
   "assignedAt": zod.coerce.date().optional(),
   "completedAt": zod.coerce.date().nullish()
+})
+
+
+/**
+ * @summary Abandon an active quest
+ */
+export const AbandonQuestParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const AbandonQuestResponse = zod.object({
+  "success": zod.boolean(),
+  "quest": zod.object({
+  "id": zod.string(),
+  "userId": zod.string(),
+  "questTemplateId": zod.string(),
+  "status": zod.enum(['ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'ABANDONED']),
+  "progressValue": zod.string(),
+  "targetValue": zod.string(),
+  "assignedAt": zod.coerce.date().optional(),
+  "completedAt": zod.coerce.date().nullish()
+})
 })
 
 

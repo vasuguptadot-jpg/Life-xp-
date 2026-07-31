@@ -6,131 +6,82 @@ import { useSignup, useSignin } from "@workspace/api-client-react";
 import { setTokens } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Zap } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 
-const registerSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-  username: z.string().min(3, "Username must be at least 3 characters").max(30),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+const schema = z.object({
+  email:    z.string().email("Enter a valid email"),
+  username: z.string().min(3, "At least 3 characters").max(30),
+  password: z.string().min(8, "At least 8 characters"),
 });
-
-type RegisterFormValues = z.infer<typeof registerSchema>;
+type Values = z.infer<typeof schema>;
 
 export default function Register() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-
-  const form = useForm<RegisterFormValues>({
-    resolver: zodResolver(registerSchema),
-    defaultValues: { email: "", username: "", password: "" },
-  });
-
+  const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: { email: "", username: "", password: "" } });
   const signupMutation = useSignup();
   const signinMutation = useSignin();
+  const isPending = signupMutation.isPending || signinMutation.isPending;
 
-  const onSubmit = (data: RegisterFormValues) => {
+  const onSubmit = (data: Values) => {
     signupMutation.mutate({ data }, {
-      onSuccess: () => {
-        signinMutation.mutate(
-          { data: { email: data.email, password: data.password } },
-          {
-            onSuccess: (res) => {
-              setTokens(res.accessToken, res.refreshToken);
-              toast({ title: "Account created", description: "Welcome to LifeXP!" });
-              setLocation("/onboarding");
-            },
-            onError: () => setLocation("/auth/login"),
-          }
-        );
-      },
-      onError: (err) => {
-        toast({ title: "Registration failed", description: err.message || "Could not create account.", variant: "destructive" });
-      },
+      onSuccess: () => signinMutation.mutate(
+        { data: { email: data.email, password: data.password } },
+        {
+          onSuccess: (res) => { setTokens(res.accessToken, res.refreshToken); toast({ title: "Account created" }); setLocation("/onboarding"); },
+          onError: () => setLocation("/auth/login"),
+        }
+      ),
+      onError: (err) => toast({ title: "Registration failed", description: err.message }),
     });
   };
 
-  const isPending = signupMutation.isPending || signinMutation.isPending;
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-5 relative overflow-hidden">
-      <div className="absolute top-1/4 -right-32 w-96 h-96 bg-primary/6 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-1/4 -left-32 w-80 h-80 bg-accent/6 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_-10%,rgba(255,255,255,0.04),transparent)] pointer-events-none" />
 
       <div className="w-full max-w-sm animate-slide-up-fade relative z-10">
-
         <div className="text-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-5 shadow-[0_0_32px_hsl(var(--primary)/0.5)]">
-            <Zap className="w-7 h-7 text-primary-foreground" fill="currentColor" />
+          <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center mx-auto mb-5 shadow-[0_0_32px_rgba(255,255,255,0.15)]">
+            <Zap className="w-6 h-6 text-black" fill="currentColor" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight mb-1">Create account</h1>
-          <p className="text-sm text-muted-foreground">Start tracking your real-world progress</p>
+          <p className="text-sm text-white/40">Track your real-world progress</p>
         </div>
 
-        <div className="bg-card border border-card-border rounded-2xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+        <div className="glass-md rounded-2xl p-6 elevation-2">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
+              {(["email", "username", "password"] as const).map(name => (
+                <FormField key={name} control={form.control} name={name} render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Email</FormLabel>
+                    <FormLabel className="text-xs font-semibold uppercase tracking-wider text-white/40">
+                      {name.charAt(0).toUpperCase() + name.slice(1)}
+                    </FormLabel>
                     <FormControl>
-                      <Input placeholder="you@example.com" {...field} className="bg-surface border-border focus-visible:border-primary h-11 rounded-xl" />
+                      <Input
+                        type={name === "password" ? "password" : "text"}
+                        placeholder={name === "email" ? "you@example.com" : name === "username" ? "player_one" : "••••••••"}
+                        {...field}
+                        className="bg-white/[0.04] border-white/[0.08] focus-visible:border-white/25 h-11 rounded-xl"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Username</FormLabel>
-                    <FormControl>
-                      <Input placeholder="player_one" {...field} className="bg-surface border-border focus-visible:border-primary h-11 rounded-xl" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Password</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} className="bg-surface border-border focus-visible:border-primary h-11 rounded-xl" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <Button type="submit" className="w-full h-12 text-sm font-bold tracking-wide mt-2" disabled={isPending}>
-                {isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : "Get Started"}
+                )} />
+              ))}
+              <Button type="submit" className="w-full h-11 text-sm font-bold mt-1" disabled={isPending}>
+                {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Get Started"}
               </Button>
             </form>
           </Form>
         </div>
 
-        <p className="text-center mt-6 text-sm text-muted-foreground">
+        <p className="text-center mt-5 text-sm text-white/40">
           Already have an account?{" "}
-          <Link href="/auth/login" className="text-primary font-semibold hover:text-primary/80 transition-colors">
-            Sign in
-          </Link>
+          <Link href="/auth/login" className="text-white font-semibold hover:opacity-70 transition-opacity">Sign in</Link>
         </p>
       </div>
     </div>

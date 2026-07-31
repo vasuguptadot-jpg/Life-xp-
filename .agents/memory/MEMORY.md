@@ -1,3 +1,3 @@
-- [LifeXP project overview](lifexp-overview.md) — full stack summary: auth, DB schema, API, web, mobile
+- [LifeXP project overview](lifexp-overview.md) — full stack summary: auth, DB schema, API, web, mobile; design system; all surfaced features
 - [Seed data](lifexp-seeds.md) — archetypes have no updated_at; quest templates seeded with 24 entries
 - [API client patterns](lifexp-api-client.md) — orval hook call signatures for mutations with path params

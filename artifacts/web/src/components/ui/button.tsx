@@ -4,24 +4,22 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-full text-sm font-semibold ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-40 active:scale-[0.97]",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-full text-sm font-semibold ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-35 active:scale-[0.97] select-none",
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_4px_16px_hsl(var(--primary)/0.35)] hover:shadow-[0_4px_24px_hsl(var(--primary)/0.5)]",
+          "bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_4px_16px_rgba(0,0,0,0.6)]",
         destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-[0_4px_12px_hsl(var(--destructive)/0.3)]",
+          "bg-destructive/10 text-destructive border border-destructive/25 hover:bg-destructive/20",
         outline:
-          "border border-border bg-transparent hover:bg-secondary text-foreground hover:border-border/80",
+          "border border-white/10 bg-white/[0.03] hover:bg-white/[0.07] text-foreground backdrop-blur-sm",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/50",
+          "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-white/[0.06]",
         ghost:
-          "hover:bg-secondary hover:text-foreground text-muted-foreground",
+          "hover:bg-white/[0.06] text-muted-foreground hover:text-foreground",
         link:
-          "text-primary underline-offset-4 hover:underline",
-        accent:
-          "bg-accent text-accent-foreground hover:bg-accent/90 shadow-[0_4px_16px_hsl(var(--accent)/0.35)]",
+          "text-foreground underline-offset-4 hover:underline opacity-70 hover:opacity-100",
       },
       size: {
         default: "h-11 px-6 py-2",

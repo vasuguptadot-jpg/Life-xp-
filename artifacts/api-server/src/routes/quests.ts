@@ -181,6 +181,46 @@ router.patch("/:id/progress", async (req, res) => {
   res.json(updated);
 });
 
+// POST /api/quests/:id/abandon
+router.post("/:id/abandon", async (req, res) => {
+  const userId = req.user!.sub;
+  const questId = req.params.id;
+
+  const [quest] = await db
+    .select()
+    .from(userQuestsTable)
+    .where(and(eq(userQuestsTable.id, questId), eq(userQuestsTable.userId, userId)))
+    .limit(1);
+
+  if (!quest) {
+    res.status(404).json({ message: "Quest not found" });
+    return;
+  }
+  if (quest.status !== "ASSIGNED" && quest.status !== "IN_PROGRESS") {
+    res.status(400).json({ message: "Only active quests can be abandoned" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(userQuestsTable)
+    .set({ status: "ABANDONED" })
+    .where(
+      and(
+        eq(userQuestsTable.id, questId),
+        eq(userQuestsTable.userId, userId),
+        inArray(userQuestsTable.status, ["ASSIGNED", "IN_PROGRESS"]),
+      ),
+    )
+    .returning();
+
+  if (!updated) {
+    res.status(409).json({ message: "Quest state changed concurrently" });
+    return;
+  }
+
+  res.json({ success: true, quest: updated });
+});
+
 // POST /api/quests/:id/complete
 router.post("/:id/complete", async (req, res) => {
   const userId = req.user!.sub;
