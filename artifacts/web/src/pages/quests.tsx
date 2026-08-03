@@ -17,9 +17,11 @@ import {
 } from "@/components/ui/dialog";
 import {
   Loader2, Plus, CheckCircle2, Target, Clock, Zap,
-  BookOpen, AlertCircle, ChevronRight, Info, X
+  BookOpen, AlertCircle, ChevronRight, Info, X, Brain,
+  Dumbbell, Flame, Heart, Shield, Star, Route, Edit3
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAiGoals, useSaveAiGoals, useDailyTasks, useCompleteTask, DailyTask } from "@/hooks/use-ai";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -47,6 +49,16 @@ function fmtDate(d: string | null | undefined) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
+
+const ATTR_ICONS: Record<string, React.ElementType> = {
+  STRENGTH: Dumbbell, ENDURANCE: Flame, MOBILITY: Target,
+  NUTRITION: Heart, RECOVERY: Shield, DISCIPLINE: Star, KNOWLEDGE: Brain,
+};
+
+const ATTR_COLORS: Record<string, string> = {
+  STRENGTH: "text-red-400", ENDURANCE: "text-orange-400", MOBILITY: "text-yellow-400",
+  NUTRITION: "text-green-400", RECOVERY: "text-blue-400", DISCIPLINE: "text-purple-400", KNOWLEDGE: "text-cyan-400",
+};
 
 // ── Quest Detail Dialog ───────────────────────────────────────────────────────
 
@@ -93,94 +105,42 @@ function QuestDetailDialog({ uq, open, onClose, onProgress, onComplete, onAbando
           </div>
         </DialogHeader>
 
-        <div className="space-y-4 mt-1">
-          <DialogDescription className="text-sm text-white/60 leading-relaxed">{q?.description}</DialogDescription>
-
-          {/* Instructions */}
-          {q?.instructions && (
-            <div className="p-3.5 rounded-xl bg-white/[0.04] border border-white/[0.06]">
-              <div className="flex items-center gap-1.5 mb-2">
-                <BookOpen className="w-3.5 h-3.5 text-white/40" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">Instructions</span>
-              </div>
-              <p className="text-sm text-white/70 leading-relaxed">{q.instructions}</p>
-            </div>
+        <div className="space-y-4 mt-2">
+          {q?.description && (
+            <p className="text-sm text-white/60 leading-relaxed">{q.description}</p>
           )}
 
-          {/* Verification */}
-          {q?.verificationRequirement && (
-            <div className="flex items-start gap-2 p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]">
-              <Info className="w-3.5 h-3.5 text-white/40 mt-0.5 shrink-0" />
-              <p className="text-xs text-white/50 leading-relaxed">{q.verificationRequirement}</p>
-            </div>
-          )}
-
-          {/* Progress */}
           <div className="space-y-2">
-            <div className="flex justify-between text-xs font-semibold">
-              <span className="text-white/40">Progress</span>
-              <span className={isReady ? "text-white" : "text-white/60"}>
-                {curr} / {tgt} {q?.targetUnit || ""}
-              </span>
+            <div className="flex justify-between text-xs text-white/40">
+              <span>Progress</span>
+              <span>{curr} / {tgt}</span>
             </div>
-            <Progress value={pct} className="h-2" indicatorClassName={isReady ? "bg-white shadow-[0_0_8px_rgba(255,255,255,0.5)]" : undefined} />
+            <Progress value={pct} className="h-1.5" />
           </div>
 
-          {/* Dates */}
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.05]">
-              <div className="text-[10px] uppercase tracking-wide text-white/30 mb-0.5">Assigned</div>
-              <div className="text-white/60 font-medium">{fmtDate(uq.user_quests.assignedAt)}</div>
-            </div>
-            {uq.user_quests.completedAt && (
-              <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.05]">
-                <div className="text-[10px] uppercase tracking-wide text-white/30 mb-0.5">Completed</div>
-                <div className="text-white/60 font-medium">{fmtDate(uq.user_quests.completedAt)}</div>
-              </div>
+          <div className="flex items-center gap-2 text-xs text-white/40">
+            <Zap className="w-3.5 h-3.5 text-yellow-400" />
+            <span className="font-semibold text-white/70">+{pc.xp} XP on completion</span>
+          </div>
+
+          <div className="flex gap-2 flex-wrap pt-2">
+            {!isReady ? (
+              <Button size="sm" onClick={onProgress} className="flex-1">
+                <ChevronRight className="w-3.5 h-3.5 mr-1" /> Log Progress
+              </Button>
+            ) : (
+              <Button size="sm" onClick={onComplete} disabled={isCompleting} className="flex-1">
+                {isCompleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Complete Quest</>}
+              </Button>
             )}
-          </div>
-
-          {/* XP Reward */}
-          <div className="p-3.5 rounded-xl bg-white/[0.04] border border-white/[0.06]">
-            <div className="flex items-center gap-1.5 mb-2">
-              <Zap className="w-3.5 h-3.5 text-white/40" />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">Reward</span>
-            </div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <Badge variant="xp" className="text-sm font-bold px-3 py-1">+{pc.xp} XP</Badge>
-              {pc.attrs.map(a => (
-                <span key={a.attribute} className="text-xs text-white/50 font-medium">
-                  +{a.xp} {a.attribute}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-2 pt-1">
-            {uq.user_quests.status !== "COMPLETED" && (
-              <>
-                {!isReady ? (
-                  <Button size="sm" variant="outline" className="flex-1" onClick={onProgress}>
-                    <Plus className="w-3.5 h-3.5 mr-1.5" />Log Progress
-                  </Button>
-                ) : (
-                  <Button size="sm" className="flex-1" onClick={onComplete} disabled={isCompleting}>
-                    {isCompleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />Claim Reward</>}
-                  </Button>
-                )}
-
-                {!confirmAbandon ? (
-                  <Button size="sm" variant="ghost" className="text-white/30 hover:text-white/60 shrink-0"
-                    onClick={() => setConfirmAbandon(true)}>
-                    <X className="w-4 h-4" />
-                  </Button>
-                ) : (
-                  <Button size="sm" variant="destructive" className="shrink-0" onClick={onAbandon} disabled={isAbandoning}>
-                    {isAbandoning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Abandon?"}
-                  </Button>
-                )}
-              </>
+            {!confirmAbandon ? (
+              <Button size="sm" variant="ghost" className="text-white/30 hover:text-red-400" onClick={() => setConfirmAbandon(true)}>
+                Abandon
+              </Button>
+            ) : (
+              <Button size="sm" variant="destructive" onClick={onAbandon} disabled={isAbandoning}>
+                {isAbandoning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Confirm Abandon"}
+              </Button>
             )}
           </div>
         </div>
@@ -189,14 +149,163 @@ function QuestDetailDialog({ uq, open, onClose, onProgress, onComplete, onAbando
   );
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
+// ── Goals Manager ─────────────────────────────────────────────────────────────
+
+function GoalsManager() {
+  const { data: aiGoals, isLoading } = useAiGoals();
+  const saveGoals = useSaveAiGoals();
+  const { toast } = useToast();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+
+  const hasGoals = aiGoals?.goals && aiGoals.goals.trim().length > 0;
+
+  const handleSave = () => {
+    if (draft.trim().length < 5) { toast({ title: "Please describe your goals" }); return; }
+    saveGoals.mutate(draft, {
+      onSuccess: () => { toast({ title: "Goals updated! AI tasks will refresh." }); setEditing(false); },
+      onError: (e) => toast({ title: "Failed to save", description: e.message }),
+    });
+  };
+
+  if (isLoading) return null;
+
+  if (!hasGoals || editing) {
+    return (
+      <div className="glass-heavy border border-white/[0.1] rounded-2xl p-5 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-bold flex items-center gap-2">
+              <Route className="w-4 h-4 text-purple-400" />
+              {hasGoals ? "Update Your Goals" : "Set Your Goals"}
+            </h3>
+            <p className="text-xs text-white/40 mt-0.5">
+              Describe what you want to achieve — the AI coach will build a personalized roadmap of daily tasks.
+            </p>
+          </div>
+          {editing && hasGoals && (
+            <button onClick={() => setEditing(false)} className="text-white/30 hover:text-white/60 transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+        <textarea
+          value={draft || (editing ? draft : aiGoals?.goals ?? "")}
+          onChange={e => setDraft(e.target.value)}
+          onFocus={() => !draft && setDraft(aiGoals?.goals ?? "")}
+          placeholder="e.g. I want to lose 10kg, build muscle, and improve my focus for work. I can exercise 3x per week and have 30 mins daily for reading."
+          rows={4}
+          className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/25 resize-none focus:outline-none focus:border-white/20 transition-colors"
+        />
+        <Button onClick={handleSave} disabled={saveGoals.isPending || !draft.trim()} size="sm" className="w-full">
+          {saveGoals.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Zap className="w-4 h-4 mr-2" />}
+          {hasGoals ? "Update Roadmap" : "Generate My Roadmap"}
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="glass-heavy border border-white/[0.08] rounded-2xl p-4 flex items-start gap-3">
+      <Route className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-bold text-white/50 uppercase tracking-wider mb-1">Your Goal Roadmap</p>
+        <p className="text-sm text-white/70 leading-relaxed line-clamp-3">{aiGoals.goals}</p>
+        {aiGoals.updatedAt && (
+          <p className="text-[10px] text-white/25 mt-1.5">Updated {fmtDate(aiGoals.updatedAt)}</p>
+        )}
+      </div>
+      <button onClick={() => { setDraft(aiGoals.goals ?? ""); setEditing(true); }}
+        className="shrink-0 text-white/30 hover:text-white/60 transition-colors p-1">
+        <Edit3 className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+}
+
+// ── AI Daily Tasks Section ────────────────────────────────────────────────────
+
+function AiTasksSection() {
+  const { data: tasks = [], isLoading } = useDailyTasks();
+  const { data: aiGoals } = useAiGoals();
+  const completeTask = useCompleteTask();
+  const { toast } = useToast();
+
+  const hasGoals = aiGoals?.goals && aiGoals.goals.trim().length > 0;
+  const completed = tasks.filter(t => t.isCompleted).length;
+
+  if (!hasGoals) return null;
+
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        <div className="text-[11px] font-bold uppercase tracking-widest text-white/30 mb-2">Today's AI Tasks</div>
+        <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-white/30" /></div>
+      </div>
+    );
+  }
+
+  if (tasks.length === 0) {
+    return (
+      <div className="space-y-2">
+        <div className="text-[11px] font-bold uppercase tracking-widest text-white/30">Today's AI Tasks</div>
+        <div className="text-center py-8 rounded-2xl border border-dashed border-white/[0.07]">
+          <Zap className="w-8 h-8 text-white/10 mx-auto mb-2" />
+          <p className="text-sm text-white/40">AI tasks are generating...</p>
+          <p className="text-xs text-white/25 mt-1">Check back in a moment</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[11px] font-bold uppercase tracking-widest text-white/30">Today's AI Tasks</span>
+        <span className="text-[10px] text-white/30">{completed}/{tasks.length} done</span>
+      </div>
+      <div className="glass-heavy border border-white/[0.08] rounded-2xl overflow-hidden divide-y divide-white/[0.04]">
+        {tasks.map(task => {
+          const Icon = ATTR_ICONS[task.category] || Zap;
+          const color = ATTR_COLORS[task.category] || "text-white/50";
+          return (
+            <div key={task.id} className={cn("flex items-start gap-3 p-4 transition-colors", task.isCompleted && "opacity-50")}>
+              <button
+                onClick={() => !task.isCompleted && completeTask.mutate(task.id, {
+                  onSuccess: () => toast({ title: "Task done!", description: `+${task.xpReward} XP` }),
+                })}
+                className={cn("mt-0.5 shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
+                  task.isCompleted
+                    ? "bg-white/20 border-white/30"
+                    : "border-white/20 hover:border-white/50"
+                )}
+              >
+                {task.isCompleted && <CheckCircle2 className="w-3.5 h-3.5 text-white/60" />}
+              </button>
+              <div className="flex-1 min-w-0">
+                <p className={cn("text-sm leading-snug", task.isCompleted && "line-through")}>{task.taskText}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <Icon className={cn("w-3 h-3", color)} />
+                  <span className={cn("text-[10px] font-semibold uppercase tracking-wider", color)}>{task.category}</span>
+                  <span className="text-[10px] text-white/30">· +{task.xpReward} XP</span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Main Quests Page ──────────────────────────────────────────────────────────
 
 export default function Quests() {
-  const { toast }   = useToast();
-  const qc          = useQueryClient();
+  const qc = useQueryClient();
+  const { toast } = useToast();
   const [detailUq, setDetailUq] = useState<UserQuestWithTemplate | null>(null);
 
-  const { data: myQuests,    isLoading: loadingMine } = useGetMyQuests({ query: { queryKey: ["/api/quests/my"] } });
+  const { data: myQuests,   isLoading: loadingMine } = useGetMyQuests({ query: { queryKey: ["/api/quests/my"] } });
   const { data: catalogue,   isLoading: loadingCat  } = useGetQuestCatalogue({ query: { queryKey: ["/api/quests/catalogue"] } });
   const { data: recommended, isLoading: loadingRec  } = useGetRecommendedQuests({ limit: 6 }, { query: { queryKey: ["/api/quests/recommended"] } });
 
@@ -258,11 +367,11 @@ export default function Quests() {
         </header>
 
         <Tabs defaultValue="active" className="space-y-4">
-          <TabsList className="bg-white/[0.04] border border-white/[0.06] p-1 rounded-xl h-auto gap-0.5">
+          <TabsList className="bg-white/[0.04] border border-white/[0.06] p-1 rounded-xl h-auto gap-0.5 flex-wrap">
             {[
-              { value: "active",    label: "Active",   count: active.length },
-              { value: "discover",  label: "Discover", count: null },
-              { value: "completed", label: "History",  count: completed.length + abandoned.length },
+              { value: "active",   label: "Active Tasks",       count: active.length },
+              { value: "roadmap",  label: "Explore Roadmap",    count: null },
+              { value: "completed", label: "Completed Tasks",   count: completed.length },
             ].map(t => (
               <TabsTrigger key={t.value} value={t.value}
                 className="rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white/40 data-[state=active]:bg-white/[0.08] data-[state=active]:text-white data-[state=active]:shadow-none">
@@ -274,31 +383,40 @@ export default function Quests() {
             ))}
           </TabsList>
 
-          {/* ── Active ── */}
-          <TabsContent value="active" className="animate-slide-up-fade outline-none">
-            {loadingMine ? <Spinner /> : active.length === 0 ? (
-              <EmptyState icon={Target} text="No active quests" sub="Browse Discover to start one." />
-            ) : (
-              <div className="grid gap-3 md:grid-cols-2">
-                {active.map((uq, idx) => (
-                  <ActiveCard key={uq.user_quests.id} uq={uq} idx={idx}
-                    onOpen={() => setDetailUq(uq)}
-                    onProgress={() => handleProgress(uq)}
-                    onComplete={() => handleComplete(uq.user_quests.id)}
-                    isCompleting={completeMutation.isPending && completeMutation.variables?.id === uq.user_quests.id}
-                  />
-                ))}
-              </div>
-            )}
+          {/* ── Active Tasks ── */}
+          <TabsContent value="active" className="animate-slide-up-fade outline-none space-y-6">
+            {/* AI daily tasks */}
+            <AiTasksSection />
+
+            {/* Quest section */}
+            <div>
+              <h3 className="text-[11px] font-bold uppercase tracking-widest text-white/30 mb-3">Active Quests</h3>
+              {loadingMine ? <Spinner /> : active.length === 0 ? (
+                <EmptyState icon={Target} text="No active quests" sub='Browse "Explore Roadmap" to start one.' />
+              ) : (
+                <div className="grid gap-3 md:grid-cols-2">
+                  {active.map((uq, idx) => (
+                    <ActiveCard key={uq.user_quests.id} uq={uq} idx={idx}
+                      onOpen={() => setDetailUq(uq)}
+                      onProgress={() => handleProgress(uq)}
+                      onComplete={() => handleComplete(uq.user_quests.id)}
+                      isCompleting={completeMutation.isPending && completeMutation.variables?.id === uq.user_quests.id}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           </TabsContent>
 
-          {/* ── Discover ── */}
-          <TabsContent value="discover" className="outline-none space-y-6 animate-slide-up-fade">
+          {/* ── Explore Roadmap ── */}
+          <TabsContent value="roadmap" className="outline-none space-y-6 animate-slide-up-fade">
+            <GoalsManager />
+
             {loadingRec || loadingCat ? <Spinner /> : (
               <>
                 {recommended && recommended.length > 0 && (
                   <section>
-                    <SectionLabel>Recommended</SectionLabel>
+                    <SectionLabel>Recommended for You</SectionLabel>
                     <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                       {recommended.map(t => (
                         <TemplateCard key={t.id} template={t} highlighted
@@ -322,10 +440,10 @@ export default function Quests() {
             )}
           </TabsContent>
 
-          {/* ── History ── */}
+          {/* ── Completed Tasks ── */}
           <TabsContent value="completed" className="outline-none animate-slide-up-fade">
             {completed.length + abandoned.length === 0 ? (
-              <EmptyState icon={CheckCircle2} text="No history yet" sub="Completed and abandoned quests appear here." />
+              <EmptyState icon={CheckCircle2} text="No completed quests yet" sub="Complete quests to build your history." />
             ) : (
               <div className="space-y-4">
                 {completed.length > 0 && (
@@ -397,42 +515,41 @@ function ActiveCard({ uq, idx, onOpen, onProgress, onComplete, isCompleting }: {
   const pc     = parseProgConfig(q?.progressionConfig);
 
   return (
-    <Card className={cn("transition-all duration-200 cursor-pointer hover:bg-white/[0.06]", isReady && "border-white/[0.14]", `stagger-${(idx%5)+1} animate-slide-up-fade`)}>
-      <CardHeader className="pb-3" onClick={onOpen}>
+    <Card className="group cursor-pointer hover:border-white/[0.12] transition-all" onClick={onOpen}>
+      <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant="ghost" className="text-[10px]">{q?.category}</Badge>
+          <div className="space-y-1">
             {q?.difficulty && (
-              <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", difficultyClass(q.difficulty))}>
+              <span className={cn("inline-block text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full", difficultyClass(q.difficulty))}>
                 {difficultyLabel(q.difficulty)}
               </span>
             )}
+            <CardTitle className="text-sm leading-snug">{q?.title}</CardTitle>
           </div>
-          <ChevronRight className="w-4 h-4 text-white/20 shrink-0 mt-0.5" />
+          <Badge variant="xp" className="shrink-0 text-[10px]">+{pc.xp} XP</Badge>
         </div>
-        <CardTitle className="text-sm mt-2">{q?.title}</CardTitle>
-        <p className="text-xs text-white/40 line-clamp-2 mt-1">{q?.description}</p>
       </CardHeader>
-      <CardContent className="pb-3" onClick={onOpen}>
+      <CardContent className="pb-3">
         <div className="space-y-1.5">
-          <div className="flex justify-between text-[11px] font-semibold">
-            <span className="text-white/30">Progress</span>
-            <span className={isReady ? "text-white" : "text-white/50"}>
-              {curr} / {tgt}{q?.targetUnit ? ` ${q.targetUnit}` : ""}
-            </span>
+          <div className="flex justify-between text-[10px] text-white/30">
+            <span>{curr} / {tgt} {q?.targetUnit || "steps"}</span>
+            <span>{Math.round(pct)}%</span>
           </div>
-          <Progress value={pct} className="h-1.5" indicatorClassName={isReady ? "bg-white shadow-[0_0_6px_rgba(255,255,255,0.5)]" : undefined} />
+          <Progress value={pct} className="h-1" />
         </div>
-        <Badge variant="xp" className="mt-2.5 text-[10px]">+{pc.xp} XP</Badge>
+        <div className="flex gap-1.5 flex-wrap mt-2">
+          <Badge variant="ghost" className="text-[10px]">{q?.category}</Badge>
+          <Badge variant="ghost" className="text-[10px]">{q?.questType}</Badge>
+        </div>
       </CardContent>
-      <CardFooter className="pt-0 p-4 gap-2">
-        {!isReady ? (
-          <Button size="sm" variant="outline" className="w-full text-xs" onClick={e => { e.stopPropagation(); onProgress(); }}>
-            <Plus className="w-3.5 h-3.5 mr-1.5" />Log Progress
+      <CardFooter className="pt-0 p-4">
+        {isReady ? (
+          <Button size="sm" className="w-full text-xs" onClick={e => { e.stopPropagation(); onComplete(); }} disabled={isCompleting}>
+            {isCompleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Complete</>}
           </Button>
         ) : (
-          <Button size="sm" className="w-full text-xs font-bold" onClick={e => { e.stopPropagation(); onComplete(); }} disabled={isCompleting}>
-            {isCompleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />Claim Reward</>}
+          <Button size="sm" variant="outline" className="w-full text-xs" onClick={e => { e.stopPropagation(); onProgress(); }}>
+            <ChevronRight className="w-3.5 h-3.5 mr-1" /> Log Progress
           </Button>
         )}
       </CardFooter>
@@ -440,20 +557,22 @@ function ActiveCard({ uq, idx, onOpen, onProgress, onComplete, isCompleting }: {
   );
 }
 
-function TemplateCard({ template, onAssign, isAssigning, highlighted }: {
-  template: QuestTemplate; onAssign: () => void; isAssigning: boolean; highlighted?: boolean;
+function TemplateCard({ template, highlighted = false, onAssign, isAssigning }: {
+  template: QuestTemplate; highlighted?: boolean; onAssign: () => void; isAssigning: boolean;
 }) {
   const pc = parseProgConfig(template.progressionConfig);
   return (
-    <Card className={cn("flex flex-col hover:bg-white/[0.06] transition-colors", highlighted && "border-white/[0.12]")}>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between mb-2">
-          <Badge variant="ghost" className="text-[10px]">{template.category}</Badge>
-          {template.difficulty && (
-            <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", difficultyClass(template.difficulty))}>
-              {difficultyLabel(template.difficulty)}
-            </span>
-          )}
+    <Card className={cn("flex flex-col", highlighted && "border-white/[0.12] bg-white/[0.03]")}>
+      <CardHeader className="pb-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="space-y-1">
+            {template.difficulty && (
+              <span className={cn("inline-block text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full", difficultyClass(template.difficulty))}>
+                {difficultyLabel(template.difficulty)}
+              </span>
+            )}
+          </div>
+          {highlighted && <Badge variant="ghost" className="text-[9px] border-white/10">Recommended</Badge>}
         </div>
         <CardTitle className="text-sm leading-snug">{template.title}</CardTitle>
       </CardHeader>

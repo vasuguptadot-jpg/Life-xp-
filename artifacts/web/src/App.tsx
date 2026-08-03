@@ -24,10 +24,12 @@ import Dashboard from '@/pages/dashboard';
 import Quests from '@/pages/quests';
 import Profile from '@/pages/profile';
 import Onboarding from '@/pages/onboarding';
+import Leaderboard from '@/pages/leaderboard';
+import Feed from '@/pages/feed';
+import UserProfilePage from '@/pages/user-profile';
 
 function AuthRedirect() {
   const [, setLocation] = useLocation();
-  // Simple check, real check happens in hooks inside pages
   if (typeof window !== "undefined") {
     const token = localStorage.getItem("accessToken");
     if (!token) {
@@ -49,6 +51,9 @@ function Router() {
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/quests" component={Quests} />
       <Route path="/profile" component={Profile} />
+      <Route path="/leaderboard" component={Leaderboard} />
+      <Route path="/feed" component={Feed} />
+      <Route path="/users/:id" component={UserProfilePage} />
       <Route component={NotFound} />
     </Switch>
   );

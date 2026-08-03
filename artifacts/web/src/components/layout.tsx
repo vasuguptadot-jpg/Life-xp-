@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useGetMe } from "@workspace/api-client-react";
-import { LayoutDashboard, Target, User as UserIcon, Zap } from "lucide-react";
+import { LayoutDashboard, Target, User as UserIcon, Zap, Trophy, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEffect } from "react";
 import { AppSkeleton } from "@/components/app-skeleton";
@@ -26,9 +26,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
   if (!user) return null;
 
   const navItems = [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/quests",    label: "Quests",    icon: Target },
-    { href: "/profile",   label: "Profile",   icon: UserIcon },
+    { href: "/dashboard",   label: "Dashboard", icon: LayoutDashboard },
+    { href: "/quests",      label: "Quests",    icon: Target },
+    { href: "/leaderboard", label: "Position",  icon: Trophy },
+    { href: "/feed",        label: "Feed",      icon: Sparkles },
+    { href: "/profile",     label: "Profile",   icon: UserIcon },
   ];
 
   return (
@@ -92,24 +94,24 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-7 pb-24 md:pb-7">
+        <div className="flex-1 overflow-y-auto p-4 md:p-7 pb-28 md:pb-7">
           {children}
         </div>
 
-        {/* Mobile bottom nav */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[68px] border-t border-white/[0.06] bg-black/90 backdrop-blur-2xl flex items-center justify-around px-4 z-50">
+        {/* Mobile bottom nav — 5 items */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[68px] border-t border-white/[0.06] bg-black/90 backdrop-blur-2xl flex items-center justify-around px-2 z-50">
           {navItems.map(item => {
             const isActive = location.startsWith(item.href);
             return (
               <Link key={item.href} href={item.href} className="flex-1 flex justify-center">
                 <div className={cn(
-                  "flex flex-col items-center gap-1 py-2 px-3 rounded-xl transition-all duration-150",
+                  "flex flex-col items-center gap-0.5 py-2 px-2 rounded-xl transition-all duration-150",
                   isActive ? "text-white" : "text-white/40"
                 )}>
                   <div className={cn("p-1 rounded-lg transition-all", isActive && "bg-white/10")}>
                     <item.icon className="w-5 h-5" />
                   </div>
-                  <span className="text-[10px] font-semibold">{item.label}</span>
+                  <span className="text-[9px] font-semibold">{item.label}</span>
                 </div>
               </Link>
             );

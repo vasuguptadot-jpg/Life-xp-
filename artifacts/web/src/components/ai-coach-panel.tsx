@@ -242,7 +242,7 @@ export function AiCoachButton({ onClick, hasUnread }: AiCoachButtonProps) {
   return (
     <button
       onClick={onClick}
-      className="fixed bottom-6 right-6 z-30 w-14 h-14 rounded-2xl bg-white shadow-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+      className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-30 w-14 h-14 rounded-2xl bg-white shadow-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
       style={{ boxShadow: "0 4px 24px rgba(255,255,255,0.15), 0 1px 0 rgba(255,255,255,0.4) inset" }}
       aria-label="Open AI Coach"
     >

@@ -6,6 +6,7 @@ import onboardingRouter from "./onboarding";
 import progressionRouter from "./progression";
 import questsRouter from "./quests";
 import aiRouter from "./ai";
+import socialRouter from "./social";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use("/onboarding", onboardingRouter);
 router.use("/progression", progressionRouter);
 router.use("/quests", questsRouter);
 router.use("/ai", aiRouter);
+router.use("/social", socialRouter);
 
 export default router;
