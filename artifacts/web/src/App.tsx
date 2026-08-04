@@ -27,6 +27,8 @@ import Onboarding from '@/pages/onboarding';
 import Leaderboard from '@/pages/leaderboard';
 import Feed from '@/pages/feed';
 import UserProfilePage from '@/pages/user-profile';
+import MessagesPage from '@/pages/messages';
+import ConversationPage from '@/pages/conversation';
 
 function AuthRedirect() {
   const [, setLocation] = useLocation();
@@ -54,6 +56,8 @@ function Router() {
       <Route path="/leaderboard" component={Leaderboard} />
       <Route path="/feed" component={Feed} />
       <Route path="/users/:id" component={UserProfilePage} />
+      <Route path="/messages" component={MessagesPage} />
+      <Route path="/messages/:id" component={ConversationPage} />
       <Route component={NotFound} />
     </Switch>
   );

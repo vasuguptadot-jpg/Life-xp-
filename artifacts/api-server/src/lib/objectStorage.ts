@@ -194,6 +194,19 @@ export class ObjectStorageService {
     return normalizedPath;
   }
 
+  /** Upload a Buffer directly to object storage (avoids presigned-URL CORS issues). */
+  async uploadBufferAsEntity(buffer: Buffer, contentType: string, ext: string): Promise<string> {
+    const { randomUUID } = await import('crypto');
+    const objectId = randomUUID();
+    const privateObjectDir = this.getPrivateObjectDir();
+    const fullPath = `${privateObjectDir}/uploads/${objectId}.${ext}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    const bucket = objectStorageClient.bucket(bucketName);
+    const file = bucket.file(objectName);
+    await file.save(buffer, { contentType, resumable: false });
+    return `/objects/uploads/${objectId}.${ext}`;
+  }
+
   async canAccessObjectEntity({
     userId,
     objectFile,

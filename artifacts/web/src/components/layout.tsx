@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useGetMe } from "@workspace/api-client-react";
-import { LayoutDashboard, Target, User as UserIcon, Zap, Trophy, Sparkles } from "lucide-react";
+import { LayoutDashboard, Target, User as UserIcon, Zap, Sparkles, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEffect } from "react";
 import { AppSkeleton } from "@/components/app-skeleton";
@@ -26,11 +26,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
   if (!user) return null;
 
   const navItems = [
-    { href: "/dashboard",   label: "Dashboard", icon: LayoutDashboard },
-    { href: "/quests",      label: "Quests",    icon: Target },
-    { href: "/leaderboard", label: "Position",  icon: Trophy },
-    { href: "/feed",        label: "Feed",      icon: Sparkles },
-    { href: "/profile",     label: "Profile",   icon: UserIcon },
+    { href: "/dashboard",  label: "Home",     icon: LayoutDashboard },
+    { href: "/quests",     label: "Quests",   icon: Target },
+    { href: "/feed",       label: "Feed",     icon: Sparkles },
+    { href: "/messages",   label: "Messages", icon: MessageSquare },
+    { href: "/profile",    label: "Profile",  icon: UserIcon },
   ];
 
   return (

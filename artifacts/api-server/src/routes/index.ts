@@ -7,6 +7,7 @@ import progressionRouter from "./progression";
 import questsRouter from "./quests";
 import aiRouter from "./ai";
 import socialRouter from "./social";
+import messagesRouter from "./messages";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use("/progression", progressionRouter);
 router.use("/quests", questsRouter);
 router.use("/ai", aiRouter);
 router.use("/social", socialRouter);
+router.use("/messages", messagesRouter);
 
 export default router;
