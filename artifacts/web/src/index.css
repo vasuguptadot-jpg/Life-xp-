@@ -127,6 +127,256 @@
 
 .dark { /* inherits root */ }
 
+/* ══════════════════════════════════════════════════════════════════════════════
+   STYLE THEMES
+   Applied as .theme-<name> on <html>
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Brutalism ─────────────────────────────────────────────────────────────── */
+.theme-brutalism {
+  --radius: 0px;
+  --background: 0 0% 0%;
+  --foreground: 0 0% 100%;
+  --card: 0 0% 0%;
+  --card-foreground: 0 0% 100%;
+  --card-border: 0 0% 100%;
+  --border: 0 0% 100%;
+  --primary: 0 0% 100%;
+  --primary-foreground: 0 0% 0%;
+  --secondary: 0 0% 5%;
+  --muted: 0 0% 5%;
+  --muted-foreground: 0 0% 60%;
+  --accent: 0 0% 10%;
+  --accent-foreground: 0 0% 100%;
+  --sidebar: 0 0% 0%;
+  --sidebar-foreground: 0 0% 100%;
+  --sidebar-border: 0 0% 100%;
+  --sidebar-accent: 0 0% 8%;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --app-font-sans: 'Space Mono', 'Courier New', monospace;
+  --shadow-sm: 3px 3px 0 rgba(255,255,255,0.9);
+  --shadow:    4px 4px 0 rgba(255,255,255,0.9);
+  --shadow-md: 6px 6px 0 rgba(255,255,255,0.9);
+  --shadow-lg: 8px 8px 0 rgba(255,255,255,0.9);
+  --opaque-button-border-intensity: 100;
+}
+.theme-brutalism .glass,
+.theme-brutalism .glass-md,
+.theme-brutalism .glass-heavy {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 2px solid rgba(255,255,255,0.9);
+  border-radius: 0;
+}
+
+/* ── Maximalism ────────────────────────────────────────────────────────────── */
+.theme-maximalism {
+  --radius: 1.5rem;
+  --background: 270 30% 6%;
+  --foreground: 0 0% 97%;
+  --card: 270 25% 10%;
+  --card-foreground: 0 0% 97%;
+  --card-border: 270 30% 22%;
+  --border: 270 25% 20%;
+  --primary: 300 80% 65%;
+  --primary-foreground: 0 0% 0%;
+  --secondary: 270 20% 14%;
+  --secondary-foreground: 0 0% 97%;
+  --muted: 270 20% 12%;
+  --muted-foreground: 270 10% 60%;
+  --accent: 195 80% 50%;
+  --accent-foreground: 0 0% 0%;
+  --sidebar: 270 30% 4%;
+  --sidebar-foreground: 0 0% 97%;
+  --sidebar-border: 270 25% 15%;
+  --sidebar-accent: 270 25% 12%;
+  --sidebar-accent-foreground: 0 0% 97%;
+  --sidebar-ring: 300 80% 65%;
+}
+.theme-maximalism .glass {
+  background: rgba(180,100,255,0.08);
+  border: 1px solid rgba(180,100,255,0.2);
+}
+.theme-maximalism .glass-md {
+  background: rgba(180,100,255,0.12);
+  border: 1px solid rgba(180,100,255,0.25);
+}
+
+/* ── Minimalism ────────────────────────────────────────────────────────────── */
+.theme-minimalism {
+  --radius: 0.25rem;
+  --background: 0 0% 98%;
+  --foreground: 0 0% 8%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 8%;
+  --card-border: 0 0% 88%;
+  --border: 0 0% 88%;
+  --primary: 0 0% 10%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 0 0% 95%;
+  --secondary-foreground: 0 0% 10%;
+  --muted: 0 0% 94%;
+  --muted-foreground: 0 0% 50%;
+  --accent: 0 0% 90%;
+  --accent-foreground: 0 0% 10%;
+  --sidebar: 0 0% 96%;
+  --sidebar-foreground: 0 0% 8%;
+  --sidebar-border: 0 0% 88%;
+  --sidebar-accent: 0 0% 92%;
+  --sidebar-accent-foreground: 0 0% 8%;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow:    0 1px 4px rgba(0,0,0,0.06);
+  --shadow-md: 0 2px 8px rgba(0,0,0,0.07);
+  --shadow-lg: 0 4px 16px rgba(0,0,0,0.08);
+}
+.theme-minimalism .glass,
+.theme-minimalism .glass-md,
+.theme-minimalism .glass-heavy {
+  background: rgba(0,0,0,0.02);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid rgba(0,0,0,0.08);
+}
+.theme-minimalism .text-attr   { color: rgba(0,0,0,var(--attr-opacity,0.8)); }
+.theme-minimalism .bg-attr     { background-color: rgba(0,0,0,var(--attr-opacity,0.8)); }
+.theme-minimalism .border-attr { border-color: rgba(0,0,0,calc(var(--attr-opacity,0.8)*0.3)); }
+
+/* ── Cyberpunk ─────────────────────────────────────────────────────────────── */
+.theme-cyberpunk {
+  --radius: 0px;
+  --background: 195 100% 2%;
+  --foreground: 195 100% 90%;
+  --card: 195 80% 4%;
+  --card-foreground: 195 100% 90%;
+  --card-border: 195 100% 25%;
+  --border: 195 80% 20%;
+  --primary: 195 100% 50%;
+  --primary-foreground: 195 100% 3%;
+  --secondary: 195 60% 8%;
+  --secondary-foreground: 195 100% 90%;
+  --muted: 195 40% 6%;
+  --muted-foreground: 195 40% 50%;
+  --accent: 280 100% 60%;
+  --accent-foreground: 0 0% 100%;
+  --ring: 195 100% 50%;
+  --sidebar: 195 100% 2%;
+  --sidebar-foreground: 195 100% 85%;
+  --sidebar-border: 195 80% 18%;
+  --sidebar-accent: 195 60% 6%;
+  --sidebar-accent-foreground: 195 100% 85%;
+  --app-font-sans: 'Space Mono', 'Courier New', monospace;
+  --shadow-sm: 0 0 8px rgba(0,255,255,0.15);
+  --shadow:    0 0 16px rgba(0,255,255,0.2), 0 0 4px rgba(0,255,255,0.3);
+  --shadow-md: 0 0 24px rgba(0,255,255,0.25), 0 0 8px rgba(0,255,255,0.35);
+  --shadow-lg: 0 0 40px rgba(0,255,255,0.3), 0 0 12px rgba(0,255,255,0.4);
+}
+.theme-cyberpunk .glass,
+.theme-cyberpunk .glass-md,
+.theme-cyberpunk .glass-heavy {
+  background: rgba(0,255,255,0.03);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid rgba(0,255,255,0.25);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   COLOR PALETTES
+   Applied as .palette-<name> on <html>, combined with style theme
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* palette-obsidian: default — pure black, no overrides needed */
+
+/* ── Midnight (deep navy) ────────────────────────────────────────────────── */
+.palette-midnight:not(.theme-minimalism):not(.theme-brutalism):not(.theme-cyberpunk) {
+  --background: 220 60% 3%;
+  --foreground: 210 40% 96%;
+  --card: 220 50% 7%;
+  --card-foreground: 210 40% 96%;
+  --card-border: 220 40% 16%;
+  --border: 220 35% 14%;
+  --secondary: 220 40% 11%;
+  --muted: 220 35% 9%;
+  --muted-foreground: 220 20% 55%;
+  --accent: 220 35% 14%;
+  --sidebar: 220 60% 2%;
+  --sidebar-foreground: 210 40% 96%;
+  --sidebar-border: 220 40% 12%;
+  --sidebar-accent: 220 40% 9%;
+}
+
+/* ── Forest (dark green) ─────────────────────────────────────────────────── */
+.palette-forest:not(.theme-minimalism):not(.theme-brutalism):not(.theme-cyberpunk) {
+  --background: 140 50% 2%;
+  --foreground: 120 20% 96%;
+  --card: 140 40% 6%;
+  --card-foreground: 120 20% 96%;
+  --card-border: 140 35% 14%;
+  --border: 140 30% 12%;
+  --secondary: 140 30% 9%;
+  --muted: 140 25% 7%;
+  --muted-foreground: 140 15% 52%;
+  --accent: 140 30% 12%;
+  --sidebar: 140 50% 2%;
+  --sidebar-foreground: 120 20% 96%;
+  --sidebar-border: 140 35% 10%;
+  --sidebar-accent: 140 30% 8%;
+}
+
+/* ── Violet (deep purple) ────────────────────────────────────────────────── */
+.palette-violet:not(.theme-minimalism):not(.theme-brutalism):not(.theme-cyberpunk) {
+  --background: 270 50% 3%;
+  --foreground: 260 20% 96%;
+  --card: 270 40% 7%;
+  --card-foreground: 260 20% 96%;
+  --card-border: 270 35% 16%;
+  --border: 270 30% 14%;
+  --secondary: 270 30% 10%;
+  --muted: 270 25% 8%;
+  --muted-foreground: 270 15% 52%;
+  --accent: 270 30% 14%;
+  --sidebar: 270 50% 2%;
+  --sidebar-foreground: 260 20% 96%;
+  --sidebar-border: 270 35% 12%;
+  --sidebar-accent: 270 30% 9%;
+}
+
+/* ── Ember (warm amber) ──────────────────────────────────────────────────── */
+.palette-ember:not(.theme-minimalism):not(.theme-brutalism):not(.theme-cyberpunk) {
+  --background: 25 60% 2%;
+  --foreground: 30 30% 95%;
+  --card: 25 50% 6%;
+  --card-foreground: 30 30% 95%;
+  --card-border: 25 40% 14%;
+  --border: 25 35% 12%;
+  --secondary: 25 35% 9%;
+  --muted: 25 30% 7%;
+  --muted-foreground: 25 20% 52%;
+  --accent: 25 35% 12%;
+  --sidebar: 25 60% 2%;
+  --sidebar-foreground: 30 30% 95%;
+  --sidebar-border: 25 40% 10%;
+  --sidebar-accent: 25 35% 8%;
+}
+
+/* ── Rose (dark pink) ────────────────────────────────────────────────────── */
+.palette-rose:not(.theme-minimalism):not(.theme-brutalism):not(.theme-cyberpunk) {
+  --background: 330 50% 3%;
+  --foreground: 330 15% 96%;
+  --card: 330 40% 7%;
+  --card-foreground: 330 15% 96%;
+  --card-border: 330 35% 16%;
+  --border: 330 30% 14%;
+  --secondary: 330 30% 10%;
+  --muted: 330 25% 8%;
+  --muted-foreground: 330 15% 52%;
+  --accent: 330 30% 14%;
+  --sidebar: 330 50% 2%;
+  --sidebar-foreground: 330 15% 96%;
+  --sidebar-border: 330 35% 12%;
+  --sidebar-accent: 330 30% 9%;
+}
+
 @layer base {
   * { @apply border-border; }
   body { @apply font-sans antialiased bg-background text-foreground; }

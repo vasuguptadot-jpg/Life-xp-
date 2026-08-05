@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import {
   Zap, TrendingUp, ArrowUp, Dumbbell, Flame, Target, Heart, Shield, Star, Brain,
-  ChevronUp, ChevronDown, CheckCircle2, Circle, Lightbulb, Activity, Trophy,
+  ChevronUp, ChevronDown, CheckCircle2, Circle, Lightbulb, Activity, Trophy, Palette,
 } from "lucide-react";
 import { formatXp, getAttributeColorClass, cn } from "@/lib/utils";
 import { useMemo } from "react";
@@ -17,6 +17,8 @@ import {
 } from "@/hooks/use-ai";
 import GoalSetupModal from "@/components/goal-setup-modal";
 import AiCoachPanel, { AiCoachButton } from "@/components/ai-coach-panel";
+import DietPlanCard from "@/components/diet-plan-card";
+import ThemePicker from "@/components/theme-picker";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -139,6 +141,7 @@ export default function Dashboard() {
   const [coachOpen, setCoachOpen] = useState(false);
   const [goalModalOpen, setGoalModalOpen] = useState(false);
   const [goalModalDismissed, setGoalModalDismissed] = useState(false);
+  const [themePickerOpen, setThemePickerOpen] = useState(false);
 
   const { data: prog, isLoading } = useGetProgressionSummary({ query: { queryKey: ["/api/users/me/progression"] } });
   const { data: attrHistory }     = useGetAttributeHistory({ limit: 100 }, { query: { queryKey: ["/api/progression/attribute-history"] } });
@@ -188,9 +191,18 @@ export default function Dashboard() {
       <div className="max-w-5xl mx-auto space-y-5 pb-24">
 
         {/* ── Header ─────────────────────────────────────────────── */}
-        <header className="animate-slide-up-fade">
-          <p className="text-[11px] font-bold uppercase tracking-widest text-white/30 mb-0.5">Overview</p>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+        <header className="animate-slide-up-fade flex items-start justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-widest text-white/30 mb-0.5">Overview</p>
+            <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+          </div>
+          <button
+            onClick={() => setThemePickerOpen(true)}
+            className="mt-1 w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center hover:bg-white/[0.08] transition-colors"
+            title="Change theme"
+          >
+            <Palette className="w-4 h-4 text-white/40" />
+          </button>
         </header>
 
         {/* ── Hero: Level + XP ───────────────────────────────────── */}
@@ -305,6 +317,9 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         )}
+
+        {/* ── Diet Plan ──────────────────────────────────────────── */}
+        <DietPlanCard />
 
         {/* ── Attribute Cards ─────────────────────────────────────── */}
         <div className="animate-slide-up-fade stagger-3">
@@ -473,6 +488,9 @@ export default function Dashboard() {
       {/* ── AI Coach floating button + panel ─────────────────────── */}
       <AiCoachButton onClick={() => setCoachOpen(true)} />
       <AiCoachPanel open={coachOpen} onClose={() => setCoachOpen(false)} />
+
+      {/* ── Theme Picker ──────────────────────────────────────────── */}
+      {themePickerOpen && <ThemePicker onClose={() => setThemePickerOpen(false)} />}
 
       {/* ── Goal Setup Modal (shown if no goals set) ──────────────── */}
       {goalModalOpen && (
