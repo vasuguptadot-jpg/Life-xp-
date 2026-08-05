@@ -153,7 +153,7 @@ function CreatePostModal({ postType, onClose, onSuccess }: { postType: "post" | 
       <div className="glass-heavy border border-white/[0.1] rounded-2xl w-full max-w-lg p-5 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-bold text-lg flex items-center gap-2">
-            {isClip ? <Film className="w-5 h-5 text-purple-400" /> : <ImageIcon className="w-5 h-5 text-blue-400" />}
+            {isClip ? <Film className="w-5 h-5 text-white/60" /> : <ImageIcon className="w-5 h-5 text-white/60" />}
             {isClip ? "New Clip" : "New Post"}
           </h2>
           <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center text-white/30 hover:text-white/60 hover:bg-white/[0.06] transition-all">
@@ -355,10 +355,10 @@ export default function Profile() {
                 {levelData && (
                   <div className="flex items-center gap-3 mt-2">
                     <span className="text-xs text-white/50 flex items-center gap-1">
-                      <Trophy className="w-3 h-3 text-yellow-400/70" /> Lv {levelData.currentLevel} · {rankLabel(levelData.currentLevel)}
+                      <Trophy className="w-3 h-3 text-white/50" /> Lv {levelData.currentLevel} · {rankLabel(levelData.currentLevel)}
                     </span>
                     <span className="text-xs text-white/50 flex items-center gap-1">
-                      <Zap className="w-3 h-3 text-yellow-400/70" /> {levelData.totalXp.toLocaleString()} XP
+                      <Zap className="w-3 h-3 text-white/50" /> {levelData.totalXp.toLocaleString()} XP
                     </span>
                   </div>
                 )}
@@ -370,21 +370,21 @@ export default function Profile() {
         {/* My Content — Post & Clip buttons */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2"><Sparkles className="w-4 h-4 text-purple-400/80" /> My Content</CardTitle>
+            <CardTitle className="text-sm flex items-center gap-2"><Sparkles className="w-4 h-4 text-white/50" /> My Content</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex gap-2">
               <button onClick={() => setCreateModal("post")}
                 className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.07] text-white/70 hover:text-white transition-all text-sm font-semibold group">
                 <div className="w-6 h-6 rounded-lg bg-blue-500/20 border border-blue-400/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <ImageIcon className="w-3.5 h-3.5 text-blue-400" />
+                  <ImageIcon className="w-3.5 h-3.5 text-white/60" />
                 </div>
                 New Post
               </button>
               <button onClick={() => setCreateModal("clip")}
                 className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.07] text-white/70 hover:text-white transition-all text-sm font-semibold group">
                 <div className="w-6 h-6 rounded-lg bg-purple-500/20 border border-purple-400/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Film className="w-3.5 h-3.5 text-purple-400" />
+                  <Film className="w-3.5 h-3.5 text-white/60" />
                 </div>
                 New Clip
               </button>
@@ -414,7 +414,7 @@ export default function Profile() {
                       <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
                         <span className="text-[10px] text-white/80 flex items-center gap-1"><Heart className="w-3 h-3" />{post.likes_count}</span>
                         <button onClick={() => deletePostMut.mutate(post.id)}
-                          className="text-red-400/80 hover:text-red-400 transition-colors">
+                          className="text-white/40 hover:text-white/80 transition-colors">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>

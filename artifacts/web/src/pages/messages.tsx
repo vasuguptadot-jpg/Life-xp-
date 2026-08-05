@@ -84,7 +84,7 @@ function NewMessageModal({ onClose }: { onClose: () => void }) {
             className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-white/20 transition-colors"
           />
         </div>
-        {error && <p className="text-xs text-red-400">{error}</p>}
+        {error && <p className="text-xs text-white/60">{error}</p>}
         <button onClick={start} disabled={loading || !username.trim()}
           className="w-full py-2.5 rounded-xl bg-white text-black text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2">
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Start Conversation"}
@@ -112,7 +112,7 @@ export default function Messages() {
           <div>
             <p className="text-[11px] font-bold uppercase tracking-widest text-white/30 mb-0.5">Social</p>
             <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-              <MessageSquare className="w-5 h-5 text-blue-400/80" /> Messages
+              <MessageSquare className="w-5 h-5 text-white/50" /> Messages
             </h1>
           </div>
           <button onClick={() => setShowNew(true)}

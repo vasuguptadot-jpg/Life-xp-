@@ -56,8 +56,8 @@ const ATTR_ICONS: Record<string, React.ElementType> = {
 };
 
 const ATTR_COLORS: Record<string, string> = {
-  STRENGTH: "text-red-400", ENDURANCE: "text-orange-400", MOBILITY: "text-yellow-400",
-  NUTRITION: "text-green-400", RECOVERY: "text-blue-400", DISCIPLINE: "text-purple-400", KNOWLEDGE: "text-cyan-400",
+  STRENGTH: "text-white/90", ENDURANCE: "text-white/80", MOBILITY: "text-white/70",
+  NUTRITION: "text-white/65", RECOVERY: "text-white/60", DISCIPLINE: "text-white/55", KNOWLEDGE: "text-white/50",
 };
 
 // ── Quest Detail Dialog ───────────────────────────────────────────────────────
@@ -119,7 +119,7 @@ function QuestDetailDialog({ uq, open, onClose, onProgress, onComplete, onAbando
           </div>
 
           <div className="flex items-center gap-2 text-xs text-white/40">
-            <Zap className="w-3.5 h-3.5 text-yellow-400" />
+            <Zap className="w-3.5 h-3.5 text-white/60" />
             <span className="font-semibold text-white/70">+{pc.xp} XP on completion</span>
           </div>
 
@@ -134,7 +134,7 @@ function QuestDetailDialog({ uq, open, onClose, onProgress, onComplete, onAbando
               </Button>
             )}
             {!confirmAbandon ? (
-              <Button size="sm" variant="ghost" className="text-white/30 hover:text-red-400" onClick={() => setConfirmAbandon(true)}>
+              <Button size="sm" variant="ghost" className="text-white/30 hover:text-white/80" onClick={() => setConfirmAbandon(true)}>
                 Abandon
               </Button>
             ) : (
@@ -176,7 +176,7 @@ function GoalsManager() {
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3 className="text-sm font-bold flex items-center gap-2">
-              <Route className="w-4 h-4 text-purple-400" />
+              <Route className="w-4 h-4 text-white/50" />
               {hasGoals ? "Update Your Goals" : "Set Your Goals"}
             </h3>
             <p className="text-xs text-white/40 mt-0.5">
@@ -207,7 +207,7 @@ function GoalsManager() {
 
   return (
     <div className="glass-heavy border border-white/[0.08] rounded-2xl p-4 flex items-start gap-3">
-      <Route className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
+      <Route className="w-4 h-4 text-white/50 shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
         <p className="text-xs font-bold text-white/50 uppercase tracking-wider mb-1">Your Goal Roadmap</p>
         <p className="text-sm text-white/70 leading-relaxed line-clamp-3">{aiGoals.goals}</p>

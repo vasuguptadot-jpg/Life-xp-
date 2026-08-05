@@ -1,9 +1,10 @@
 import { Link, useLocation } from "wouter";
 import { useGetMe } from "@workspace/api-client-react";
-import { LayoutDashboard, Target, User as UserIcon, Zap, Sparkles, MessageSquare } from "lucide-react";
+import { LayoutDashboard, Target, User as UserIcon, Sparkles, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEffect } from "react";
 import { AppSkeleton } from "@/components/app-skeleton";
+import LifeXPLogo from "@/components/lifexp-logo";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -41,9 +42,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         {/* Logo */}
         <div className="h-14 flex items-center px-5 border-b border-white/[0.06]">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-white flex items-center justify-center shadow-[0_0_16px_rgba(255,255,255,0.15)]">
-              <Zap className="w-4 h-4 text-black" fill="currentColor" />
-            </div>
+            <LifeXPLogo size={28} />
             <span className="font-bold text-lg tracking-tight">LifeXP</span>
           </div>
         </div>
@@ -87,9 +86,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         {/* Mobile header */}
         <header className="md:hidden h-14 flex items-center justify-between px-4 border-b border-white/[0.06] bg-white/[0.02] backdrop-blur-2xl sticky top-0 z-10">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-white flex items-center justify-center shadow-[0_0_12px_rgba(255,255,255,0.12)]">
-              <Zap className="w-4 h-4 text-black" fill="currentColor" />
-            </div>
+            <LifeXPLogo size={28} />
             <span className="font-bold text-base tracking-tight">LifeXP</span>
           </div>
         </header>

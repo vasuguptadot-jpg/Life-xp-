@@ -87,7 +87,7 @@ function PostCard({ post, onLike, onUnlike, onTagClick, onUserClick }: {
           </button>
           <div className="flex items-center gap-2">
             <p className="text-[10px] text-white/30">@{post.username} · {timeAgo(post.created_at)}</p>
-            {post.post_type === "clip" && <span className="text-[9px] font-bold text-purple-400/80 bg-purple-400/10 rounded-full px-2 py-0.5 flex items-center gap-1"><Film className="w-2.5 h-2.5" />Clip</span>}
+            {post.post_type === "clip" && <span className="text-[9px] font-bold text-white/60 bg-white/[0.06] rounded-full px-2 py-0.5 flex items-center gap-1"><Film className="w-2.5 h-2.5" />Clip</span>}
           </div>
         </div>
       </div>
@@ -147,7 +147,7 @@ function PostCard({ post, onLike, onUnlike, onTagClick, onUserClick }: {
         <button
           onClick={() => post.liked_by_me ? onUnlike(post.id) : onLike(post.id)}
           className={cn("flex items-center gap-1.5 text-xs font-semibold transition-all active:scale-90",
-            post.liked_by_me ? "text-red-400" : "text-white/30 hover:text-white/60")}>
+            post.liked_by_me ? "text-white/90" : "text-white/30 hover:text-white/60")}>
           <Heart className={cn("w-4 h-4 transition-all", post.liked_by_me && "fill-current scale-110")} />
           {post.likes_count}
         </button>
@@ -200,7 +200,7 @@ function ClipCard({ post, onLike, onUnlike, onUserClick }: {
       <button
         onClick={() => post.liked_by_me ? onUnlike(post.id) : onLike(post.id)}
         className={cn("absolute right-4 bottom-20 flex flex-col items-center gap-1 transition-all active:scale-90",
-          post.liked_by_me ? "text-red-400" : "text-white/60")}>
+          post.liked_by_me ? "text-white/90" : "text-white/60")}>
         <Heart className={cn("w-6 h-6 drop-shadow", post.liked_by_me && "fill-current")} />
         <span className="text-[11px] font-bold drop-shadow">{post.likes_count}</span>
       </button>
@@ -251,7 +251,7 @@ export default function Feed() {
           <div>
             <p className="text-[11px] font-bold uppercase tracking-widest text-white/30 mb-0.5">Community</p>
             <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-purple-400/80" /> Feed
+              <Sparkles className="w-5 h-5 text-white/50" /> Feed
             </h1>
           </div>
         </header>

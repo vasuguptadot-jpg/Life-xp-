@@ -6,7 +6,8 @@ import * as z from "zod";
 import { useSignin } from "@workspace/api-client-react";
 import { setTokens } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Zap, ArrowRight } from "lucide-react";
+import { Loader2, ArrowRight } from "lucide-react";
+import LifeXPLogo from "@/components/lifexp-logo";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -161,14 +162,8 @@ export default function Login() {
               className="absolute -inset-[5px] rounded-[26px] opacity-20"
               style={{ border: "1px solid rgba(255,255,255,0.6)" }}
             />
-            <div
-              className="relative w-[56px] h-[56px] rounded-[18px] flex items-center justify-center"
-              style={{
-                background:  "linear-gradient(135deg, #ffffff 0%, #d4d4d4 100%)",
-                boxShadow:   "0 0 32px rgba(255,255,255,0.2), 0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.9)",
-              }}
-            >
-              <Zap className="w-[26px] h-[26px] text-black" fill="currentColor" />
+            <div className="relative flex items-center justify-center">
+              <LifeXPLogo size={56} />
             </div>
           </div>
 

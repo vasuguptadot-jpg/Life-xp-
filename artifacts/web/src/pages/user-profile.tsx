@@ -133,7 +133,7 @@ export default function UserProfile() {
             </div>
             <div className="text-center">
               <p className="text-lg font-black flex items-center justify-center gap-0.5">
-                <Zap className="w-4 h-4 text-yellow-400" />{profile.totalXp.toLocaleString()}
+                <Zap className="w-4 h-4 text-white/60" />{profile.totalXp.toLocaleString()}
               </p>
               <p className="text-[10px] text-white/40 uppercase tracking-wider">XP</p>
             </div>

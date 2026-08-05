@@ -56,13 +56,13 @@ const ATTR_ICONS: Record<string, React.ElementType> = {
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  STRENGTH:   "text-red-400",
-  ENDURANCE:  "text-orange-400",
-  MOBILITY:   "text-yellow-400",
-  NUTRITION:  "text-green-400",
-  RECOVERY:   "text-blue-400",
-  DISCIPLINE: "text-purple-400",
-  KNOWLEDGE:  "text-cyan-400",
+  STRENGTH:   "text-white/90",
+  ENDURANCE:  "text-white/80",
+  MOBILITY:   "text-white/70",
+  NUTRITION:  "text-white/65",
+  RECOVERY:   "text-white/60",
+  DISCIPLINE: "text-white/55",
+  KNOWLEDGE:  "text-white/50",
 };
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -300,7 +300,7 @@ export default function Dashboard() {
             <CardContent className="p-4">
               <div className="flex gap-3.5">
                 <div className="w-8 h-8 rounded-xl bg-white/[0.06] border border-white/[0.08] flex items-center justify-center shrink-0">
-                  <Lightbulb className="w-4 h-4 text-yellow-400/70" />
+                  <Lightbulb className="w-4 h-4 text-white/50" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 mb-1">

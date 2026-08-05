@@ -5,7 +5,8 @@ import * as z from "zod";
 import { useSignup, useSignin } from "@workspace/api-client-react";
 import { setTokens } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Zap } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import LifeXPLogo from "@/components/lifexp-logo";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -44,8 +45,8 @@ export default function Register() {
 
       <div className="w-full max-w-sm animate-slide-up-fade relative z-10">
         <div className="text-center mb-8">
-          <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center mx-auto mb-5 shadow-[0_0_32px_rgba(255,255,255,0.15)]">
-            <Zap className="w-6 h-6 text-black" fill="currentColor" />
+          <div className="flex items-center justify-center mx-auto mb-5">
+            <LifeXPLogo size={52} />
           </div>
           <h1 className="text-2xl font-bold tracking-tight mb-1">Create account</h1>
           <p className="text-sm text-white/40">Track your real-world progress</p>

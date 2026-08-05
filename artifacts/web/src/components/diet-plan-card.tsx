@@ -51,9 +51,9 @@ function calculateDiet(
 // ── Components ───────────────────────────────────────────────────────────────
 
 const GOAL_LABELS: Record<GoalType, { label: string; colour: string }> = {
-  lose:     { label: "Fat Loss",      colour: "text-orange-400" },
-  gain:     { label: "Muscle Gain",   colour: "text-green-400"  },
-  maintain: { label: "Maintenance",   colour: "text-blue-400"   },
+  lose:     { label: "Fat Loss",      colour: "text-white/70" },
+  gain:     { label: "Muscle Gain",   colour: "text-white/80" },
+  maintain: { label: "Maintenance",   colour: "text-white/60" },
 };
 
 interface MacroBarProps {
@@ -80,7 +80,7 @@ function MacroBar({ label, grams, calories, color, icon: Icon, pct }: MacroBarPr
       </div>
       <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
         <div
-          className={cn("h-full rounded-full transition-all duration-700", `bg-gradient-to-r ${color.replace("text-", "from-")} to-transparent`)}
+          className={cn("h-full rounded-full transition-all duration-700 bg-gradient-to-r from-white/60 to-transparent")}
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -120,7 +120,7 @@ export default function DietPlanCard() {
         </CardHeader>
         <CardContent className="px-5 pb-5">
           <div className="flex items-start gap-3">
-            <AlertCircle className="w-4 h-4 text-yellow-400/70 shrink-0 mt-0.5" />
+            <AlertCircle className="w-4 h-4 text-white/50 shrink-0 mt-0.5" />
             <div>
               <p className="text-sm text-white/60">Add your weight & height in Profile to unlock your personalised diet plan.</p>
             </div>
@@ -176,7 +176,7 @@ export default function DietPlanCard() {
             label="Protein"
             grams={plan.proteinG}
             calories={plan.proteinG * 4}
-            color="text-red-400"
+            color="text-white/90"
             icon={Beef}
             pct={proteinPct}
           />
@@ -184,7 +184,7 @@ export default function DietPlanCard() {
             label="Carbs"
             grams={plan.carbsG}
             calories={plan.carbsG * 4}
-            color="text-yellow-400"
+            color="text-white/70"
             icon={Wheat}
             pct={carbsPct}
           />
@@ -192,7 +192,7 @@ export default function DietPlanCard() {
             label="Fat"
             grams={plan.fatG}
             calories={plan.fatG * 9}
-            color="text-blue-400"
+            color="text-white/55"
             icon={Droplets}
             pct={fatPct}
           />
@@ -201,9 +201,9 @@ export default function DietPlanCard() {
         {/* Macro ratio pills */}
         <div className="flex gap-2">
           {[
-            { label: `${proteinPct}% Protein`, color: "bg-red-400/10 text-red-400/80 border-red-400/20" },
-            { label: `${carbsPct}% Carbs`,   color: "bg-yellow-400/10 text-yellow-400/80 border-yellow-400/20" },
-            { label: `${fatPct}% Fat`,       color: "bg-blue-400/10 text-blue-400/80 border-blue-400/20" },
+            { label: `${proteinPct}% Protein`, color: "bg-white/[0.07] text-white/80 border-white/[0.12]" },
+            { label: `${carbsPct}% Carbs`,     color: "bg-white/[0.05] text-white/60 border-white/[0.08]" },
+            { label: `${fatPct}% Fat`,         color: "bg-white/[0.04] text-white/50 border-white/[0.06]" },
           ].map(p => (
             <span key={p.label} className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full border", p.color)}>
               {p.label}

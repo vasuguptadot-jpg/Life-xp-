@@ -34,16 +34,16 @@ function rankLabel(level: number) {
 }
 
 function rankColor(rank: number) {
-  if (rank === 1) return "text-yellow-400";
-  if (rank === 2) return "text-slate-300";
-  if (rank === 3) return "text-amber-600";
+  if (rank === 1) return "text-white";
+  if (rank === 2) return "text-white/70";
+  if (rank === 3) return "text-white/55";
   return "text-white/30";
 }
 
 function RankIcon({ rank }: { rank: number }) {
-  if (rank === 1) return <Crown className="w-5 h-5 text-yellow-400" />;
-  if (rank === 2) return <Medal className="w-5 h-5 text-slate-300" />;
-  if (rank === 3) return <Medal className="w-5 h-5 text-amber-600" />;
+  if (rank === 1) return <Crown className="w-5 h-5 text-white" />;
+  if (rank === 2) return <Medal className="w-5 h-5 text-white/70" />;
+  if (rank === 3) return <Medal className="w-5 h-5 text-white/55" />;
   return <span className={cn("text-sm font-black tabular-nums w-5 text-center", rankColor(rank))}>{rank}</span>;
 }
 
@@ -64,7 +64,7 @@ export default function Leaderboard() {
         <header className="mb-2">
           <p className="text-[11px] font-bold uppercase tracking-widest text-white/30 mb-0.5">Rankings</p>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Trophy className="w-6 h-6 text-yellow-400/80" />
+            <Trophy className="w-6 h-6 text-white/60" />
             Position
           </h1>
           <p className="text-xs text-white/40 mt-1">Global XP leaderboard — earn XP by completing AI tasks</p>
@@ -74,7 +74,7 @@ export default function Leaderboard() {
         {me && myRank > 0 && (
           <div className="glass-heavy border border-white/[0.1] rounded-2xl p-4 flex items-center gap-4">
             <div className="w-10 h-10 rounded-xl bg-white/[0.08] border border-white/[0.08] flex items-center justify-center shrink-0">
-              <Trophy className="w-5 h-5 text-yellow-400/80" />
+              <Trophy className="w-5 h-5 text-white/60" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs text-white/40 uppercase tracking-wider font-semibold">Your Rank</p>
@@ -83,7 +83,7 @@ export default function Leaderboard() {
             <div className="text-right">
               <p className="text-xs text-white/40">Total XP</p>
               <p className="text-lg font-black flex items-center gap-1">
-                <Zap className="w-4 h-4 text-yellow-400" />
+                <Zap className="w-4 h-4 text-white/60" />
                 {entries.find(e => e.id === me.id)?.totalXp?.toLocaleString() ?? 0}
               </p>
             </div>
@@ -103,14 +103,14 @@ export default function Leaderboard() {
                   className={cn(
                     "flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all hover:scale-105",
                     isCenter
-                      ? "border-yellow-400/20 bg-yellow-400/[0.04] mt-0"
+                      ? "border-white/20 bg-white/[0.04] mt-0"
                       : "border-white/[0.06] bg-white/[0.02] mt-4"
                   )}
                 >
-                  {isCenter && <Crown className="w-5 h-5 text-yellow-400 mb-0.5" />}
+                  {isCenter && <Crown className="w-5 h-5 text-white mb-0.5" />}
                   <div className={cn(
                     "rounded-xl border flex items-center justify-center font-black text-base shrink-0",
-                    isCenter ? "w-12 h-12 bg-yellow-400/10 border-yellow-400/20 text-yellow-400" : "w-10 h-10 bg-white/[0.06] border-white/[0.08]"
+                    isCenter ? "w-12 h-12 bg-white/10 border-white/20 text-white" : "w-10 h-10 bg-white/[0.06] border-white/[0.08]"
                   )}>
                     {entry.avatarUrl
                       ? <img src={`/api/social/objects${entry.avatarUrl.replace(/^\/objects/, "")}`} className="w-full h-full rounded-xl object-cover" />
@@ -174,7 +174,7 @@ export default function Leaderboard() {
 
                   {/* XP */}
                   <div className="flex items-center gap-1 shrink-0">
-                    <Zap className="w-3.5 h-3.5 text-yellow-400/70" />
+                    <Zap className="w-3.5 h-3.5 text-white/50" />
                     <span className="text-sm font-bold tabular-nums">{entry.totalXp.toLocaleString()}</span>
                     <ChevronRight className="w-3.5 h-3.5 text-white/20 ml-0.5" />
                   </div>
