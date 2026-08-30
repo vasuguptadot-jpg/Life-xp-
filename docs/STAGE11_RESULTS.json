@@ -1,0 +1,103 @@
+{
+  "stage": 11,
+  "title": "Stage 11 — Production Environment Certification & Deployment Readiness",
+  "recorded_at": "2026-08-31",
+  "branch": "arena/01a05271-life-xp",
+  "baseline_head": "c0ea8f3",
+  "final_head": "60b956a",
+  "final_classification": "CONDITIONAL GO",
+  "summary": "Environment was reset between stages; recovered from remote after confirming the exact expected commit (c0ea8f3). No real external infrastructure is available (no DATABASE_URL, no GROQ_API_KEY, no object-storage sidecar, no browser). Recreated the isolated PGlite pgwire server and exercised the real production build against it: schema contract exact (23 tables/154 columns), typecheck+tests (40/40)+build all PASS, auth/IDOR/security/CORS/concurrency/observability/migration-safety verified. One HIGH defect found and fixed this stage: non-atomic refresh-token rotation permitted concurrent replay (4/5 concurrent refreshes succeeded); fixed with an atomic UPDATE...RETURNING claim and re-verified (exactly 1 success per token).",
+  "baseline_recovery": {
+    "local_head_after_reset": "25cbdf2",
+    "remote_confirmed": "c0ea8f3",
+    "action": "git reset --hard c0ea8f3 after confirming remote and fixing fetch refspec",
+    "work_lost": false,
+    "tracked_files": 154
+  },
+  "environment_inventory": {
+    "DATABASE_URL": "NOT SET -> BLOCKED",
+    "GROQ_API_KEY": "NOT SET -> BLOCKED",
+    "SESSION_SECRET": "NOT SET (audit value supplied locally)",
+    "PORT": "NOT SET (4325 supplied locally)",
+    "object_storage_sidecar": "NOT AVAILABLE -> BLOCKED",
+    "browser_automation": "NOT AVAILABLE -> BLOCKED",
+    "isolated_pglite": "RECREATED (127.0.0.1:5433, maxConnections=10, local-only)"
+  },
+  "result_categories": {
+    "verified_in_real_production": [],
+    "verified_locally": ["backend boot/health", "auth (incl. refresh rotation)", "IDOR", "security smoke", "concurrency", "CORS", "observability", "migration safety", "frontend static serving", "schema contract", "typecheck", "tests", "build"],
+    "blocked_by_missing_infrastructure": ["real PostgreSQL", "real AI/Groq", "real object storage", "browser E2E"],
+    "unverified": ["live AI generation + provider error/timeout", "object storage upload/ACL/traversal at runtime", "multi-instance migration race"]
+  },
+  "classification_matrix": {
+    "REAL_DB": "BLOCKED",
+    "REAL_AI": "BLOCKED (no-key degradation verified)",
+    "REAL_OBJECT_STORAGE": "BLOCKED",
+    "REAL_BACKEND": "PASS (local, production build)",
+    "REAL_FRONTEND": "PASS (local, static build; browser interaction BLOCKED)",
+    "BROWSER_E2E": "BLOCKED",
+    "SECURITY": "PASS (local)",
+    "CONCURRENCY": "PASS (local)",
+    "MIGRATION_SAFETY": "PASS (forward-only, idempotent)",
+    "OBSERVABILITY": "PASS (no secret leakage)"
+  },
+  "automated_evidence": {
+    "automated_tests": "40/40 PASS",
+    "typecheck": "PASS (all packages)",
+    "build": "PASS (api + web + libs)",
+    "schema_contract": "PASS (23 tables / 154 columns, exact)",
+    "clean_checkout": "PASS (pnpm 10.34.5 pinned, frozen lockfile, no workspace mutation)"
+  },
+  "findings": [
+    {
+      "id": "BUG-11-1",
+      "severity": "HIGH",
+      "status": "FIXED + REGRESSION TESTED + RE-VERIFIED",
+      "location": "artifacts/api-server/src/routes/auth.ts (POST /auth/refresh)",
+      "issue": "non-atomic refresh-token rotation allowed concurrent replay (TOCTOU)",
+      "reproduction": "5 concurrent /auth/refresh with same token -> up to 4x 200",
+      "fix": "atomic UPDATE ... SET revoked_at ... WHERE revoked_at IS NULL RETURNING",
+      "test": "refresh-rotation.test.ts",
+      "commit": "60b956a"
+    },
+    { "id": "LOW-1", "severity": "LOW", "status": "NOTED", "note": "server-side stack traces for CORS-rejection and malformed JSON (log noise only, no client disclosure)" },
+    { "id": "LOW-2", "severity": "LOW", "status": "NOTED", "note": "multi-instance migration race (drizzle-kit migrate has no advisory lock)" }
+  ],
+  "auth_results": {
+    "register": 201, "duplicate_email": 409, "duplicate_username": 409,
+    "weak_password": 400, "login": 200, "wrong_password": 401,
+    "me": 200, "refresh": 200, "refresh_reuse": 401, "invalid_jwt": 401
+  },
+  "security_results": {
+    "malformed_uuid": 400, "sql_injection": 401, "malformed_json": 400,
+    "nul_byte": "sanitized (201)", "idor_post_delete": 404,
+    "idor_conv_read": 403, "idor_conv_send": 403, "idor_quest": 404,
+    "sse_member": 200, "sse_nonmember": 403, "sse_garbage": 401
+  },
+  "concurrency_results": {
+    "triple_like_count": 3,
+    "triple_unlike_count": 0,
+    "duplicate_follow": "idempotent",
+    "refresh_race_after_fix": "exactly 1 success per token (5/5 runs)"
+  },
+  "ai_degradation": {
+    "chat": "503 'AI coach is not configured. Add GROQ_API_KEY to enable.'",
+    "daily_tasks": "[]",
+    "life_tip": "static fallback (200)",
+    "server_health_after": "healthy"
+  },
+  "cors_results": {
+    "allowed_origin": "200 + ACAO + credentials",
+    "preflight_allowed": "204 + ACAO + methods + headers",
+    "missing_origin": "200 (no ACAO needed)",
+    "disallowed_origin": "500 (cosmetic; no ACAO emitted)",
+    "credentialed": "Allow-Credentials true, no wildcard"
+  },
+  "final_decision": "CONDITIONAL GO",
+  "to_reach_go": [
+    "Real PostgreSQL DATABASE_URL (prod or staging)",
+    "Real GROQ_API_KEY",
+    "Object-storage sidecar",
+    "Browser automation (Playwright/Chromium)"
+  ]
+}
