@@ -1,10 +1,18 @@
 import { Router } from "express";
 import { sql } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { requireAuth } from "../lib/auth";
+import { requireAuth, verifyToken } from "../lib/auth";
 
 const router = Router();
-router.use(requireAuth);
+// requireAuth for all routes except the SSE events route, which authenticates
+// via ?token= (EventSource cannot set the Authorization header) and enforces
+// conversation membership in its own handler.
+router.use((req, res, next) => {
+  if (req.method === "GET" && req.path.endsWith("/events")) {
+    return next();
+  }
+  requireAuth(req, res, next);
+});
 
 // UUID v4-ish format check used to reject malformed ids cleanly (400) rather
 // than letting PostgreSQL raise a cast error.
@@ -164,8 +172,7 @@ router.get("/conversations/:id/events", async (req, res) => {
   const tokenFromQuery = req.query.token as string | undefined;
   if (tokenFromQuery && !req.user) {
     try {
-      const { verifyToken } = require("../lib/auth");
-      (req as any).user = verifyToken(tokenFromQuery);
+      req.user = verifyToken(tokenFromQuery);
     } catch {
       res.status(401).json({ message: "Unauthorized" }); return;
     }
