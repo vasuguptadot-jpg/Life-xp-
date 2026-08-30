@@ -70,6 +70,8 @@ router.post("/users/:id/follow", async (req, res) => {
   const followingId = req.params.id;
   if (!isValidUuid(followingId)) { res.status(400).json({ message: "Invalid user id" }); return; }
   if (followerId === followingId) { res.status(400).json({ message: "Cannot follow yourself" }); return; }
+  const [target] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.id, followingId)).limit(1);
+  if (!target) { res.status(404).json({ message: "User not found" }); return; }
   await db.execute(sql`INSERT INTO follows (follower_id, following_id) VALUES (${followerId}, ${followingId}) ON CONFLICT DO NOTHING`);
   res.json({ following: true });
 });
@@ -205,6 +207,8 @@ router.post("/posts/:id/like", async (req, res) => {
   const userId = req.user!.sub;
   const postId = req.params.id;
   if (!isValidUuid(postId)) { res.status(400).json({ message: "Invalid post id" }); return; }
+  const [post] = await db.select({ id: postsTable.id }).from(postsTable).where(eq(postsTable.id, postId)).limit(1);
+  if (!post) { res.status(404).json({ message: "Post not found" }); return; }
   const [inserted] = await db
     .insert(postLikesTable)
     .values({ userId, postId })

@@ -68,6 +68,13 @@ router.post("/conversations", async (req, res) => {
     res.status(400).json({ message: "Invalid user" }); return;
   }
 
+  // Ensure the other user actually exists before inserting members, otherwise
+  // the FK constraint aborts the insert and surfaces as an unhandled 500.
+  const target = await db.execute(sql`SELECT 1 FROM users WHERE id = ${otherUserId} LIMIT 1`);
+  if (((target.rows ?? target) as any[]).length === 0) {
+    res.status(404).json({ message: "User not found" }); return;
+  }
+
   // Check if conversation already exists
   const existing = await db.execute(sql`
     SELECT c.id FROM conversations c
