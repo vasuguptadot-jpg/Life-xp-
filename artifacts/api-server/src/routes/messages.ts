@@ -104,6 +104,7 @@ router.post("/conversations", async (req, res) => {
 router.get("/conversations/:id/messages", async (req, res) => {
   const userId = req.user!.sub;
   const convId = req.params.id;
+  if (!UUID_RE.test(convId)) { res.status(400).json({ message: "Invalid conversation id" }); return; }
 
   // Verify membership
   const member = (await db.execute(sql`
@@ -133,6 +134,7 @@ router.get("/conversations/:id/messages", async (req, res) => {
 router.post("/conversations/:id/messages", async (req, res) => {
   const userId = req.user!.sub;
   const convId = req.params.id;
+  if (!UUID_RE.test(convId)) { res.status(400).json({ message: "Invalid conversation id" }); return; }
   const { content } = req.body ?? {};
   if (!content?.trim()) { res.status(400).json({ message: "Content required" }); return; }
 
@@ -187,6 +189,7 @@ router.get("/conversations/:id/events", async (req, res) => {
   if (!req.user) { res.status(401).json({ message: "Unauthorized" }); return; }
   const userId = req.user!.sub;
   const convId = req.params.id;
+  if (!UUID_RE.test(convId)) { res.status(400).json({ message: "Invalid conversation id" }); return; }
 
   // Verify membership
   const member = (await db.execute(sql`

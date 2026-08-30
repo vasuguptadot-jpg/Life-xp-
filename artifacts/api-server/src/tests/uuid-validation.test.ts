@@ -12,6 +12,7 @@ const maybe = TEST_DB_URL ? describe : describe.skip;
 maybe("UUID validation — malformed :id returns 400 (not 500)", () => {
   let social: express.Router;
   let quests: express.Router;
+  let messages: express.Router;
   let token: string;
 
   beforeAll(async () => {
@@ -19,6 +20,7 @@ maybe("UUID validation — malformed :id returns 400 (not 500)", () => {
     process.env.DATABASE_URL = TEST_DB_URL;
     social = (await import("../routes/social")).default;
     quests = (await import("../routes/quests")).default;
+    messages = (await import("../routes/messages")).default;
     const { signToken } = await import("../lib/auth");
     token = signToken({ sub: "00000000-0000-0000-0000-000000000001", email: "uuid@example.com" });
   });
@@ -28,6 +30,7 @@ maybe("UUID validation — malformed :id returns 400 (not 500)", () => {
     server.use(express.json());
     server.use("/social", social);
     server.use("/quests", quests);
+    server.use("/messages", messages);
     return server;
   }
 
@@ -42,12 +45,21 @@ maybe("UUID validation — malformed :id returns 400 (not 500)", () => {
     ["PATCH", "/quests/not-a-uuid/progress"],
     ["POST", "/quests/not-a-uuid/abandon"],
     ["POST", "/quests/not-a-uuid/complete"],
+    ["GET", "/messages/conversations/not-a-uuid/messages"],
+    ["POST", "/messages/conversations/not-a-uuid/messages"],
   ];
 
   it.each(cases)("%s %s -> 400", async (method, path) => {
     const res = await (request(app()) as any)[method.toLowerCase()](path)
       .set("Authorization", `Bearer ${token}`)
-      .send(method === "PATCH" ? { progress: 50 } : undefined);
+      .send(method === "PATCH" ? { progress: 50 } : (method === "POST" ? {} : undefined));
+    expect(res.status).toBe(400);
+  });
+
+  it("GET /messages/conversations/:id/events (malformed) -> 400 via ?token=", async () => {
+    const res = await request(app())
+      .get("/messages/conversations/not-a-uuid/events")
+      .query({ token });
     expect(res.status).toBe(400);
   });
 });
