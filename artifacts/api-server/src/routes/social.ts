@@ -186,9 +186,11 @@ router.post("/posts", async (req, res) => {
 
 router.delete("/posts/:id", async (req, res) => {
   const userId = req.user!.sub;
-  const result = await db.execute(sql`DELETE FROM posts WHERE id = ${req.params.id} AND user_id = ${userId} RETURNING id`);
-  const rows = (result.rows ?? result) as any[];
-  if (rows.length === 0) {
+  const deleted = await db
+    .delete(postsTable)
+    .where(and(eq(postsTable.id, req.params.id), eq(postsTable.userId, userId)))
+    .returning({ id: postsTable.id });
+  if (deleted.length === 0) {
     res.status(404).json({ message: "Post not found" }); return;
   }
   res.json({ deleted: true });
