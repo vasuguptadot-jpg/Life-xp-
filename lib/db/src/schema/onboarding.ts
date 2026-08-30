@@ -34,6 +34,12 @@ export const userProfilesTable = pgTable("user_profiles", {
   weightKg: numeric("weight_kg", { precision: 5, scale: 2 }),
   activityLevel: text("activity_level"),
   dateOfBirth: timestamp("date_of_birth"),
+  // Extended profile fields — written via raw SQL in routes/users.ts
+  // (profile-extra), read by routes/social.ts (leaderboard avatar) and
+  // routes/messages.ts (avatar on conversations).
+  avatarUrl: text("avatar_url"),
+  bio: text("bio"),
+  age: integer("age"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -69,6 +75,9 @@ export const userGoalsTable = pgTable(
       .notNull(),
     goalKey: text("goal_key").notNull(),
     isPrimary: boolean("is_primary").default(false).notNull(),
+    // Free-text goal description — read by routes/social.ts
+    // (personalized feed: SELECT g.text FROM user_goals ...).
+    text: text("text"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [index("user_goals_user_id_idx").on(t.userId)],
