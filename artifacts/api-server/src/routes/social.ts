@@ -1,18 +1,16 @@
 import { Router } from "express";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { usersTable, userLevelsTable, userProfilesTable } from "@workspace/db/schema";
+import { usersTable, userLevelsTable, userProfilesTable, postsTable, postLikesTable } from "@workspace/db/schema";
 import { requireAuth } from "../lib/auth";
 import { ObjectStorageService } from "../lib/objectStorage";
 import multer from "multer";
-import Groq from "groq-sdk";
 
 const router = Router();
 router.use(requireAuth);
 
 const storage = new ObjectStorageService();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 150 * 1024 * 1024 } });
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 // ── Leaderboard ──────────────────────────────────────────────────────────────
 router.get("/leaderboard", async (req, res) => {
@@ -50,9 +48,9 @@ router.get("/users/:id", async (req, res) => {
   ]);
 
   const [[followerCount], [followingCount], [followRow]] = await Promise.all([
-    db.execute(sql`SELECT COUNT(*) FROM follows WHERE following_id = ${id}`),
-    db.execute(sql`SELECT COUNT(*) FROM follows WHERE follower_id = ${id}`),
-    db.execute(sql`SELECT 1 FROM follows WHERE follower_id = ${viewerId} AND following_id = ${id} LIMIT 1`),
+    db.execute(sql`SELECT COUNT(*) FROM follows WHERE following_id = ${id}`).then((r) => r.rows),
+    db.execute(sql`SELECT COUNT(*) FROM follows WHERE follower_id = ${id}`).then((r) => r.rows),
+    db.execute(sql`SELECT 1 FROM follows WHERE follower_id = ${viewerId} AND following_id = ${id} LIMIT 1`).then((r) => r.rows),
   ]);
 
   res.json({
@@ -172,37 +170,54 @@ router.post("/posts", async (req, res) => {
   }
   const tags: string[] = Array.isArray(hashtags) ? hashtags.map((t: string) => t.toLowerCase().replace(/^#/, "")) : [];
   const type = postType === "clip" ? "clip" : "post";
-  const rows = await db.execute(sql`
-    INSERT INTO posts (user_id, caption, image_url, video_url, hashtags, post_type)
-    VALUES (${userId}, ${caption ?? null}, ${imageUrl ?? null}, ${videoUrl ?? null}, ${JSON.stringify(tags)}::text[], ${type})
-    RETURNING *
-  `);
-  res.status(201).json((rows as any).rows?.[0] ?? (rows as any)[0] ?? rows);
+  const [row] = await db
+    .insert(postsTable)
+    .values({
+      userId,
+      caption: caption ?? null,
+      imageUrl: imageUrl ?? null,
+      videoUrl: videoUrl ?? null,
+      hashtags: tags,
+      postType: type,
+    })
+    .returning();
+  res.status(201).json(row);
 });
 
 router.delete("/posts/:id", async (req, res) => {
   const userId = req.user!.sub;
-  await db.execute(sql`DELETE FROM posts WHERE id = ${req.params.id} AND user_id = ${userId}`);
+  const result = await db.execute(sql`DELETE FROM posts WHERE id = ${req.params.id} AND user_id = ${userId} RETURNING id`);
+  const rows = (result.rows ?? result) as any[];
+  if (rows.length === 0) {
+    res.status(404).json({ message: "Post not found" }); return;
+  }
   res.json({ deleted: true });
 });
 
 router.post("/posts/:id/like", async (req, res) => {
   const userId = req.user!.sub;
   const postId = req.params.id;
-  await db.execute(sql`
-    INSERT INTO post_likes (user_id, post_id) VALUES (${userId}, ${postId}) ON CONFLICT DO NOTHING;
-    UPDATE posts SET likes_count = likes_count + 1 WHERE id = ${postId}
-  `);
+  const [inserted] = await db
+    .insert(postLikesTable)
+    .values({ userId, postId })
+    .onConflictDoNothing()
+    .returning();
+  if (inserted) {
+    await db.execute(sql`UPDATE posts SET likes_count = likes_count + 1 WHERE id = ${postId}`);
+  }
   res.json({ liked: true });
 });
 
 router.delete("/posts/:id/like", async (req, res) => {
   const userId = req.user!.sub;
   const postId = req.params.id;
-  await db.execute(sql`
-    DELETE FROM post_likes WHERE user_id = ${userId} AND post_id = ${postId};
-    UPDATE posts SET likes_count = GREATEST(likes_count - 1, 0) WHERE id = ${postId}
-  `);
+  const [removed] = await db
+    .delete(postLikesTable)
+    .where(and(eq(postLikesTable.userId, userId), eq(postLikesTable.postId, postId)))
+    .returning();
+  if (removed) {
+    await db.execute(sql`UPDATE posts SET likes_count = GREATEST(likes_count - 1, 0) WHERE id = ${postId}`);
+  }
   res.json({ liked: false });
 });
 

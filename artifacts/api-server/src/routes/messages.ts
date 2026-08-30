@@ -6,6 +6,10 @@ import { requireAuth } from "../lib/auth";
 const router = Router();
 router.use(requireAuth);
 
+// UUID v4-ish format check used to reject malformed ids cleanly (400) rather
+// than letting PostgreSQL raise a cast error.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // In-memory SSE clients map: conversationId -> Set of {userId, res}
 const sseClients = new Map<string, Set<{ userId: string; res: any }>>();
 
@@ -52,6 +56,9 @@ router.post("/conversations", async (req, res) => {
   if (!otherUserId || otherUserId === userId) {
     res.status(400).json({ message: "Invalid user" }); return;
   }
+  if (typeof otherUserId !== "string" || !UUID_RE.test(otherUserId)) {
+    res.status(400).json({ message: "Invalid user" }); return;
+  }
 
   // Check if conversation already exists
   const existing = await db.execute(sql`
@@ -71,7 +78,7 @@ router.post("/conversations", async (req, res) => {
       INSERT INTO conversations DEFAULT VALUES RETURNING id
     )
     INSERT INTO conversation_members (conversation_id, user_id)
-    SELECT id, unnest(ARRAY[${userId}, ${otherUserId}]) FROM new_conv
+    SELECT id, unnest(ARRAY[${userId}::uuid, ${otherUserId}::uuid]) FROM new_conv
     RETURNING conversation_id as id
   `);
   const rows = (result.rows ?? result) as any[];
@@ -84,9 +91,9 @@ router.get("/conversations/:id/messages", async (req, res) => {
   const convId = req.params.id;
 
   // Verify membership
-  const [member] = await db.execute(sql`
+  const member = (await db.execute(sql`
     SELECT 1 FROM conversation_members WHERE conversation_id = ${convId} AND user_id = ${userId}
-  `);
+  `)).rows[0];
   if (!member) { res.status(403).json({ message: "Not a member" }); return; }
 
   const limit = Math.min(Number(req.query.limit ?? 50), 100);
@@ -132,11 +139,11 @@ router.post("/conversations/:id/messages", async (req, res) => {
   const msg = ((result.rows ?? result) as any[])[0];
 
   // Get sender info
-  const [senderInfo] = await db.execute(sql`
+  const senderInfo = (await db.execute(sql`
     SELECT u.username, u.display_name, up.avatar_url
     FROM users u LEFT JOIN user_profiles up ON up.user_id = u.id
     WHERE u.id = ${userId}
-  `);
+  `)).rows[0];
 
   const fullMsg = {
     ...msg,
@@ -168,9 +175,9 @@ router.get("/conversations/:id/events", async (req, res) => {
   const convId = req.params.id;
 
   // Verify membership
-  const [member] = await db.execute(sql`
+  const member = (await db.execute(sql`
     SELECT 1 FROM conversation_members WHERE conversation_id = ${convId} AND user_id = ${userId}
-  `);
+  `)).rows[0];
   if (!member) { res.status(403).json({ message: "Not a member" }); return; }
 
   res.setHeader("Content-Type", "text/event-stream");
