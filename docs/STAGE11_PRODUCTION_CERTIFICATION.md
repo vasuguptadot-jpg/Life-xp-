@@ -128,9 +128,17 @@ review of `objectAcl.ts` / `objectStorage.ts`.
 | auth routing | ✅ (§8) |
 | API routing (all routers) | ✅ |
 | CORS enforcement | ✅ (§9) |
-| graceful shutdown | ✅ SIGTERM → clean exit |
-| REQUIRED vars fail-fast (`DATABASE_URL`/`SESSION_SECRET`/`PORT`) | ✅ verified per Stage 9 |
+| shutdown | ✅ SIGTERM → clean process exit, port released (no orphan/hang). No explicit drain handler — Node default termination; in-flight requests are not drained. |
+| REQUIRED vars fail-fast | ✅ empirically verified this stage (see below) |
 | optional vars degrade (`GROQ_API_KEY`, storage) | ✅ verified |
+
+**Fail-fast (empirically verified, distinct messages, exit 1):**
+
+| Missing var | Behavior |
+|-------------|----------|
+| `DATABASE_URL` | `Error: DATABASE_URL must be set. Did you forget to provision a database?` |
+| `SESSION_SECRET` | `Error: SESSION_SECRET env var is required` |
+| `PORT` | `Error: PORT environment variable is required but was not provided.` |
 
 ---
 
@@ -151,10 +159,10 @@ after each step; no credential leakage in responses or logs.
 | refresh | ✅ 200 |
 | refresh rotation | ✅ 200 + new token |
 | refresh reuse (rotated) | ✅ 401 |
-| logout | ✅ revokes refresh token |
-| revoked refresh | ✅ 401 |
+| logout | ✅ 200, revokes refresh token |
+| revoked refresh (after logout) | ✅ 401 (empirically verified) |
 | invalid JWT | ✅ 401 |
-| expired JWT | ✅ 401 |
+| expired JWT | ✅ 401 (empirically verified — signed with `expiresIn: -1s`) |
 
 **Defect found & fixed this stage (HIGH):** refresh rotation was non-atomic
 (`SELECT`-then-`UPDATE`), so concurrent replays of one refresh token minted
@@ -177,7 +185,7 @@ concurrent bursts → exactly one 200, rest 401.** Regression test
 | unexpected JSON types | ✅ 400 |
 | NUL byte | ✅ sanitized (no 500) |
 | SQL injection (`' OR 1=1 --`) | ✅ 401 (parameterized; no effect) |
-| oversized input | ✅ bounded (limits honored) |
+| oversized input (200 KB body) | ✅ 413 Payload Too Large (express.json default limit) |
 | IDOR — cross-user post delete | ✅ 404 |
 | IDOR — cross-user post access/mutation | ✅ 404 |
 | IDOR — cross-user quest access | ✅ 404 |
@@ -250,7 +258,7 @@ experiments).
 - Quest list capped; `recommended` uses `Number(limit)||5` (LOW, carried) ⚠️
 - SSE cleanup on disconnect ✅
 - Single shared `pg` Pool; no connection leaks observed ✅
-- AI timeout behavior: no-key path returns immediately; real-provider timeout UNVERIFIED
+- AI timeout behavior: no-key path returns **503 in ~3 ms** (immediate, no hang); real-provider timeout UNVERIFIED
 - No unbounded queries, no obvious N+1 in exercised paths ✅
 
 ---

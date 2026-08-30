@@ -63,6 +63,7 @@
       "commit": "60b956a"
     },
     { "id": "LOW-1", "severity": "LOW", "status": "NOTED", "note": "server-side stack traces for CORS-rejection and malformed JSON (log noise, no client disclosure)" },
+    { "id": "LOW-3", "severity": "LOW", "status": "NOTED", "note": "no explicit graceful-shutdown handler; relies on Node default SIGTERM termination (clean exit, no orphan; in-flight requests not drained)" },
     { "id": "LOW-2", "severity": "LOW", "status": "NOTED", "note": "multi-instance migration race (drizzle-kit migrate has no advisory lock)" },
     { "id": "FIND-10-1", "severity": "MEDIUM", "status": "CARRIED", "note": "transitive uuid <11.1.1 advisory via @google-cloud/storage>gaxios" },
     { "id": "FIND-10-2", "severity": "LOW", "status": "CARRIED", "note": "quests/recommended uncapped limit on small public catalogue" },
@@ -73,12 +74,18 @@
     "register": 201, "duplicate_email": 409, "duplicate_username": 409,
     "weak_password": 400, "login": 200, "wrong_password": 401,
     "me": 200, "refresh": 200, "refresh_rotation": 200,
-    "refresh_reuse": 401, "logout": "revokes refresh", "revoked_refresh": 401,
+    "refresh_reuse": 401, "logout": 200, "revoked_refresh_after_logout": 401,
     "invalid_jwt": 401, "expired_jwt": 401
+  },
+  "fail_fast": {
+    "missing_DATABASE_URL": "exit 1 — 'DATABASE_URL must be set. Did you forget to provision a database?'",
+    "missing_SESSION_SECRET": "exit 1 — 'SESSION_SECRET env var is required'",
+    "missing_PORT": "exit 1 — 'PORT environment variable is required but was not provided.'"
   },
   "security_results": {
     "malformed_uuid": 400, "malformed_json": 400, "unexpected_json_types": 400,
-    "nul_byte": "sanitized (no 500)", "sql_injection": 401, "oversized_input": "bounded",
+    "nul_byte": "sanitized (no 500)", "sql_injection": 401,
+    "oversized_input_200kb": "413 Payload Too Large",
     "idor_post_delete": 404, "idor_post_access": 404, "idor_quest": 404,
     "idor_msg_read": 403, "idor_msg_send": 403,
     "sse_member": 200, "sse_nonmember": 403, "sse_garbage": 401,
@@ -95,6 +102,7 @@
   },
   "ai_degradation": {
     "chat": "503 'AI coach is not configured. Add GROQ_API_KEY to enable.'",
+    "chat_latency_ms": 3,
     "daily_tasks": "[]",
     "life_tip": "static fallback (200)",
     "server_health_after": "healthy"
