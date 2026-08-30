@@ -1,7 +1,7 @@
 # LifeXP Release Checklist
 
 Use this before any production release. The current state (Stage 7 audit,
-HEAD `ec72468`) is **YELLOW** — ship-ready with documented verification gaps.
+HEAD `d38b3ea`) is **YELLOW** — ship-ready with documented verification gaps.
 Complete the open items before declaring a fully GREEN release.
 
 ## Blocking / release-gate checks (must all be ✅)
