@@ -70,6 +70,7 @@ router.get("/recommended", async (req, res) => {
 router.post("/assign/:templateId", async (req, res) => {
   const userId = req.user!.sub;
   const { templateId } = req.params;
+  if (!isValidUuid(templateId)) { res.status(400).json({ message: "Invalid quest template id" }); return; }
 
   const [template] = await db
     .select()

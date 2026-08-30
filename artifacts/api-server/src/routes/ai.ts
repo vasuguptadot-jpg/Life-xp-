@@ -10,6 +10,7 @@ import {
   userAttributesTable,
 } from "@workspace/db/schema";
 import { requireAuth } from "../lib/auth";
+import { isValidUuid } from "../lib/uuid";
 import { awardXp, isValidAttribute } from "../lib/progression";
 import Groq from "groq-sdk";
 
@@ -180,6 +181,7 @@ Respond ONLY with a valid JSON array, nothing else. Example format:
 router.post("/daily-tasks/:id/complete", async (req, res) => {
   const userId = req.user!.sub;
   const { id } = req.params;
+  if (!isValidUuid(id)) { res.status(400).json({ message: "Invalid task id" }); return; }
 
   const [task] = await db
     .select()

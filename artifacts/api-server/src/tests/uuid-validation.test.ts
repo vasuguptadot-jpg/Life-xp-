@@ -13,6 +13,7 @@ maybe("UUID validation — malformed :id returns 400 (not 500)", () => {
   let social: express.Router;
   let quests: express.Router;
   let messages: express.Router;
+  let ai: express.Router;
   let token: string;
 
   beforeAll(async () => {
@@ -21,6 +22,7 @@ maybe("UUID validation — malformed :id returns 400 (not 500)", () => {
     social = (await import("../routes/social")).default;
     quests = (await import("../routes/quests")).default;
     messages = (await import("../routes/messages")).default;
+    ai = (await import("../routes/ai")).default;
     const { signToken } = await import("../lib/auth");
     token = signToken({ sub: "00000000-0000-0000-0000-000000000001", email: "uuid@example.com" });
   });
@@ -31,6 +33,7 @@ maybe("UUID validation — malformed :id returns 400 (not 500)", () => {
     server.use("/social", social);
     server.use("/quests", quests);
     server.use("/messages", messages);
+    server.use("/ai", ai);
     return server;
   }
 
@@ -45,8 +48,10 @@ maybe("UUID validation — malformed :id returns 400 (not 500)", () => {
     ["PATCH", "/quests/not-a-uuid/progress"],
     ["POST", "/quests/not-a-uuid/abandon"],
     ["POST", "/quests/not-a-uuid/complete"],
+    ["POST", "/quests/assign/not-a-uuid"],
     ["GET", "/messages/conversations/not-a-uuid/messages"],
     ["POST", "/messages/conversations/not-a-uuid/messages"],
+    ["POST", "/ai/daily-tasks/not-a-uuid/complete"],
   ];
 
   it.each(cases)("%s %s -> 400", async (method, path) => {
