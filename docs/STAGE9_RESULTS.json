@@ -1,0 +1,120 @@
+{
+  "stage": 9,
+  "title": "Stage 9 — Production Environment Validation & Release Certification",
+  "recorded_at": "2026-08-30",
+  "branch": "arena/01a05271-life-xp",
+  "baseline_head": "ebf5fbc",
+  "final_classification": "CONDITIONAL GO",
+  "summary": "Release certification. Baseline integrity, environment contract, clean-checkout reproducibility, full API smoke test (42 checks), and security regression (14 checks) all PASS. Live AI, live object storage, live production DB, and browser E2E remain BLOCKED — ENVIRONMENT (no credentials/infrastructure present), not FAIL. One new metadata change: pinned packageManager to pnpm@10.34.5 (pnpm 11 silently mutates pnpm-workspace.yaml and breaks --frozen-lockfile). No application defects remain.",
+  "baseline": {
+    "head": "ebf5fbc30a097b8cd42b05d7e41a462d1c8b3bec",
+    "remote_synchronized": true,
+    "working_tree_clean": true,
+    "tracked_files": 144,
+    "note": "Local remote-tracking ref was stale (clone fetch refspec only tracked main); fixed to +refs/heads/*:refs/remotes/origin/*. Remote itself was always at ebf5fbc."
+  },
+  "environment_contract": {
+    "REQUIRED_FOR_BOOT": ["DATABASE_URL", "SESSION_SECRET", "PORT"],
+    "REQUIRED_FOR_DATABASE": ["DATABASE_URL"],
+    "REQUIRED_FOR_AI": ["GROQ_API_KEY"],
+    "REQUIRED_FOR_OBJECT_STORAGE": ["PUBLIC_OBJECT_SEARCH_PATHS", "PRIVATE_OBJECT_DIR"],
+    "OPTIONAL": ["NODE_ENV", "LOG_LEVEL", "BASE_PATH", "CORS_ORIGINS"],
+    "DEVELOPMENT_REPLIT_SPECIFIC": ["REPL_ID", "PGHOST", "PGPORT", "PGUSER", "PGPASSWORD", "PGDATABASE", "REPLIT_DEV_DOMAIN"],
+    "TEST_ONLY_INTERNAL": ["TEST_DATABASE_URL"],
+    "env_example_accuracy": "PASS (all 12 process.env references classified correctly; TEST_DATABASE_URL correctly omitted as test-only)"
+  },
+  "database": {
+    "live_validation": "BLOCKED — ENVIRONMENT (no DATABASE_URL present; read-only live inspection not possible)",
+    "isolated_reproduction": "PASS (carried from Stage 8: 23 tables, 154 columns match DATABASE_CONTRACT.json exactly, migrations from zero, seed idempotent)"
+  },
+  "ai": {
+    "live_validation": "BLOCKED (no GROQ_API_KEY)",
+    "no_key_graceful_degradation": "PASS (chat 503 'not configured', daily-tasks [], life-tip fallback, chat-history [], non-AI endpoints 200, no key leak)",
+    "goals_contract": "POST /api/ai/goals expects {goals: string}; POST /api/onboarding/goals expects {goals: string[]} — both verified 200"
+  },
+  "object_storage": {
+    "live_validation": "BLOCKED (no object-storage sidecar/infrastructure)",
+    "degradation": "upload returns 500 'PRIVATE_OBJECT_DIR not set' when storage unconfigured — fails safely, no data exposure",
+    "finding": "LOW — upload error path returns raw err.message (exposes env var NAME 'PRIVATE_OBJECT_DIR', not a secret value) and uses 500 rather than 503"
+  },
+  "api_smoke_test": {
+    "total_checks": 42,
+    "passed": 42,
+    "failed": 0,
+    "note": "One initial script bug (sent array to AI goals which expects string) — test-script issue, not app defect; corrected and re-verified",
+    "journeys": {
+      "auth": "PASS (register/login/me/refresh)",
+      "onboarding_profile": "PASS (archetypes/archetype/profile-extra persisted)",
+      "progression_xp": "PASS (level 200, summary 200, attribute-history 200)",
+      "quests": "PASS (catalogue/assign(201)/read/progress/complete; malformed UUID 400; nonexistent 404)",
+      "ai": "PASS (goals/tasks/tips/chat/history; graceful no-key)",
+      "social": "PASS (post/hashtags/feed/like/unlike/follow/leaderboard; ownership; malformed 400; nonexistent 404)",
+      "messaging_sse": "PASS (conversation 201/message/read; non-member 403; SSE member 200 event-stream, non-member 403, invalid 401)"
+    }
+  },
+  "security_regression": {
+    "total_checks": 14,
+    "passed": 14,
+    "failed": 0,
+    "checks": {
+      "sql_injection": "PASS (login rejected; tag param safe)",
+      "idor_cross_user": "PASS (cross-user delete 404; 'mine' isolation)",
+      "malformed_uuid": "PASS (400)",
+      "invalid_jwt": "PASS (garbage + alg=none both 401)",
+      "revoked_refresh": "PASS (401)",
+      "cors": "PASS (allowed ACAO present; denied absent)",
+      "malformed_json": "PASS (400)",
+      "oversized_upload": "PASS (multer 150MB limit; small upload reaches storage which degrades safely)",
+      "path_traversal": "PASS (404)",
+      "secret_leakage": "PASS (no secrets in error bodies)"
+    }
+  },
+  "browser_e2e": "BLOCKED — INFRASTRUCTURE (no playwright/puppeteer/chromium available)",
+  "build_reproducibility": {
+    "clean_checkout_head": "ebf5fbc",
+    "install": "PASS (pnpm 10.34.5 --frozen-lockfile exit 0)",
+    "typecheck": "PASS",
+    "test_no_db": "7 passed / 17 skipped",
+    "test_with_db": "24 passed",
+    "build": "PASS (web + api exit 0)",
+    "package_manager": "pnpm@10.34.5 MANDATORY (now pinned via packageManager field)",
+    "pnpm11_finding": "pnpm 11.24.0 fails --frozen-lockfile with ERR_PNPM_IGNORED_BUILDS and silently injects a placeholder 'allowBuilds' block into pnpm-workspace.yaml"
+  },
+  "dependency_audit": {
+    "critical": 0,
+    "high": 6,
+    "moderate": 2,
+    "low": 1,
+    "runtime_relevant": "1 moderate (uuid via @google-cloud/storage>gaxios; installed v9.0.1, advisory targets v3/v5/v6 buffer path not exercised by gaxios — low exploitability)",
+    "build_time_only": "8 (js-yaml x2, brace-expansion x2, fast-uri, nanoid, postcss, esbuild — all in orval/eslint/vite/esbuild dev tooling, not shipped to runtime)",
+    "verdict": "no critical; no accidental dev-in-prod; no blind upgrade (documented)",
+    "ts_ignore": "NONE",
+    "todo_fixme": "NONE (only HTML placeholder attributes)",
+    "any_casts": "pre-existing raw-SQL result casts in messages.ts/social.ts (documented in Stage 6/7)"
+  },
+  "performance": {
+    "startup": "PASS (fail-fast on missing env; clean DB connect)",
+    "connection_pooling": "PASS (pg.Pool)",
+    "pagination": "PASS (feed/messages/history/leaderboard capped)",
+    "n_plus_1": "NONE OBSERVED",
+    "sse_cleanup": "PASS (heartbeat + clearInterval on close)",
+    "upload_limit": "PASS (multer 150MB)",
+    "rate_limiter": "PASS (auth 10/15min, refresh 30/15min; in-memory single-instance)",
+    "ai_timeout": "INFO (no explicit timeout wrapper observed; relies on Groq SDK defaults)"
+  },
+  "remaining_risks": [
+    "BLOCKED: live AI generation (no GROQ_API_KEY).",
+    "BLOCKED: live object storage (no sidecar).",
+    "BLOCKED: live production/staging DB (no DATABASE_URL).",
+    "BLOCKED: browser E2E (no browser automation).",
+    "LOW: upload error returns raw message + 500 (vs 503).",
+    "LOW: uuid moderate advisory in object-storage SDK path (low exploitability).",
+    "INFO: AI requests lack an explicit timeout wrapper.",
+    "INFO: in-memory rate limiter (single instance)."
+  ],
+  "blocked": ["AI_LIVE", "OBJECT_STORAGE_LIVE", "LIVE_DB", "BROWSER_E2E"],
+  "unverified": [],
+  "new_code_changes": [
+    "package.json: added 'packageManager': 'pnpm@10.34.5' (documents and pins the mandatory package-manager version; corepack-enforced)"
+  ]
+}
