@@ -1,0 +1,85 @@
+{
+  "stage": 7,
+  "title": "Stage 7 — Final Production Readiness + Release Candidate Audit",
+  "recorded_at": "2026-08-30",
+  "branch": "arena/01a05271-life-xp",
+  "head": "ec72468",
+  "final_classification": "YELLOW",
+  "summary": "Independent release-candidate audit. All Stage 6 fixes (BUG-1..5) independently re-verified. Found and fixed one new real defect (SSE real-time messaging authentication was unreachable — every EventSource connection returned 401) plus one minor correctness fix (malformed JSON now returns 400). Remaining items are environmental (AI with a real key, object storage against a live sidecar, live production DB — all CONFIGURATION BLOCKED), browser E2E (UNVERIFIED), and a few LOW/informational non-blocking findings.",
+  "new_defects_found_and_fixed": [
+    {
+      "id": "BUG-S7-1",
+      "severity": "HIGH",
+      "area": "messaging (SSE)",
+      "endpoint": "GET /api/messages/conversations/:id/events",
+      "status": "FIXED",
+      "verification": "VERIFIED",
+      "description": "router.use(requireAuth) returned 401 before the ?token= fallback ran, and the handler used CommonJS require('../lib/auth') in an ESM module. The frontend connects via EventSource with ?token= (EventSource cannot set the Authorization header), so real-time messaging always returned 401 and never worked.",
+      "proof": "After fix: member ?token= -> 200 text/event-stream, non-member -> 403, no token -> 401, invalid token -> 401. Regression test sse-auth.test.ts (4 tests)."
+    },
+    {
+      "id": "BUG-S7-2",
+      "severity": "LOW",
+      "area": "error handling",
+      "status": "FIXED",
+      "verification": "VERIFIED",
+      "description": "Global error handler always returned 500, even for client errors (malformed JSON body has err.status=400). Now respects 4xx status codes.",
+      "proof": "Malformed JSON -> 400 'Invalid request' with no internals leaked. Regression test added."
+    }
+  ],
+  "remaining_findings": [
+    {
+      "id": "LOW-1",
+      "severity": "LOW",
+      "area": "social",
+      "status": "NOT_FIXED (documented)",
+      "description": "GET /api/social/posts/personalized ignores the `type` query param; the frontend requests ?type=post but clips can appear in the posts tab. Cosmetic filtering inconsistency."
+    },
+    {
+      "id": "LOW-2",
+      "severity": "LOW",
+      "area": "dependencies",
+      "status": "NOT_FIXED (documented)",
+      "description": "cookie-parser is declared but unused; google-auth-library is a direct dep that is only used transitively by @google-cloud/storage. Harmless; left as-is per smallest-change policy."
+    },
+    {
+      "id": "INFO-1",
+      "severity": "INFORMATIONAL",
+      "area": "rate limiting",
+      "status": "PRE-EXISTING",
+      "description": "express-rate-limit uses the in-memory store (per-process). Acceptable for single-instance Replit; needs a distributed store (e.g. Redis) for multi-instance deployments."
+    },
+    {
+      "id": "INFO-2",
+      "severity": "INFORMATIONAL",
+      "area": "cors",
+      "status": "PRE-EXISTING",
+      "description": "Disallowed cross-origin requests surface as 500 'Internal server error' via the generic handler rather than a clean 403. No Access-Control-Allow-Origin header is emitted, so browsers still block the response. Cosmetic, not a security bypass."
+    }
+  ],
+  "verification_matrix": {
+    "git": {"clean": true, "tracked_files": 136, "restored_old_repo": false, "stage6_commits_present": true},
+    "install": {"frozen_lockfile": "PASS", "workspace_projects": 8, "removed_workspace_refs": "NONE"},
+    "typecheck": {"libs": "PASS", "web": "PASS", "api": "PASS"},
+    "tests": {"without_db": "7 passed / 7 skipped", "with_db": "14 passed / 0 skipped"},
+    "build": {"web": "PASS", "api": "PASS", "root": "PASS"},
+    "database": {"tables": 23, "columns": "VERIFIED", "pks": "VERIFIED", "fks": "VERIFIED", "indexes": "VERIFIED", "constraints": "VERIFIED", "array_cols": "VERIFIED (text[])", "uuid_cols": "VERIFIED (46)"},
+    "crud": {"auth": "PASS", "onboarding": "PASS", "progression": "PASS (XP via quest completion; summary UNVERIFIED via single-conn harness)", "quests": "PASS", "social": "PASS", "messaging": "PASS", "ai": "PASS (graceful, no key)"},
+    "bugs_1_5": {"BUG-1": "FIXED+VERIFIED", "BUG-2": "FIXED+VERIFIED", "BUG-3": "FIXED+VERIFIED", "BUG-4": "FIXED+VERIFIED", "BUG-5": "FIXED+VERIFIED"},
+    "security": {"idor": "PASS (no cross-user read/write/delete)", "auth": "PASS (bcrypt, JWT, rotation, replay, revocation, rate limit)", "input_validation": "PASS", "sql_injection": "PASS (all parameterized)", "secrets": "PASS (none in source or history)", "sse": "PASS (after fix)", "cors": "PASS (allow-list enforced)"},
+    "ai_failure_modes": {"no_key": "PASS (503 / [] / fallback; server boots)", "invalid_key": "VERIFIED (server boots, no key leak in errors, controlled failures, non-AI works, lazy init preserved)"},
+    "object_storage": {"path_traversal": "PASS (fail-safe 404)", "ownership_idor": "UNVERIFIED (no live sidecar)"},
+    "startup": {"missing_DATABASE_URL": "FAIL_FAST", "missing_SESSION_SECRET": "FAIL_FAST", "missing_GROQ": "DEGRADES_GRACEFULLY", "missing_object_storage": "DEGRADES_GRACEFULLY"},
+    "clean_checkout": {"install": "PASS", "typecheck": "PASS", "test": "PASS", "build": "PASS"},
+    "frontend": {"routes": "PASS (12 + catch-all)", "api_contract": "PASS (generated client + handwritten fetches match; one LOW type-filter note)"}
+  },
+  "blocked": [
+    "AI generation with a real GROQ_API_KEY (no credential available).",
+    "Object storage upload/download/ACL against a live Replit sidecar.",
+    "Live production PostgreSQL schema comparison (no DATABASE_URL)."
+  ],
+  "unverified": [
+    "Browser end-to-end flows (no browser runtime; build-level only).",
+    "GET /api/progression/summary runtime (uses Promise.all over 3 queries — correct for production pg.Pool, but the single-connection PGlite harness cannot execute concurrent queries)."
+  ]
+}
