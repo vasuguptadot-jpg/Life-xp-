@@ -1,45 +1,47 @@
 {
   "stage": 11,
-  "title": "Stage 11 — Production Environment Certification & Deployment Readiness",
+  "title": "Stage 11 — Final Production Environment Certification",
   "recorded_at": "2026-08-31",
   "branch": "arena/01a05271-life-xp",
   "baseline_head": "c0ea8f3",
-  "final_head": "60b956a",
+  "final_head": "8abc66b",
   "final_classification": "CONDITIONAL GO",
-  "summary": "Environment was reset between stages; recovered from remote after confirming the exact expected commit (c0ea8f3). No real external infrastructure is available (no DATABASE_URL, no GROQ_API_KEY, no object-storage sidecar, no browser). Recreated the isolated PGlite pgwire server and exercised the real production build against it: schema contract exact (23 tables/154 columns), typecheck+tests (40/40)+build all PASS, auth/IDOR/security/CORS/concurrency/observability/migration-safety verified. One HIGH defect found and fixed this stage: non-atomic refresh-token rotation permitted concurrent replay (4/5 concurrent refreshes succeeded); fixed with an atomic UPDATE...RETURNING claim and re-verified (exactly 1 success per token).",
-  "baseline_recovery": {
-    "local_head_after_reset": "25cbdf2",
-    "remote_confirmed": "c0ea8f3",
-    "action": "git reset --hard c0ea8f3 after confirming remote and fixing fetch refspec",
-    "work_lost": false,
-    "tracked_files": 154
+  "summary": "Stage 11 closes the Stage 10 CONDITIONAL-GO environmental gaps using real infrastructure where available. No real external infrastructure is available in the sandbox (no DATABASE_URL, no GROQ_API_KEY, no object-storage sidecar, no browser), so each is classified BLOCKED. The isolated PGlite pgwire server (real Postgres wire protocol) was recreated and the actual production build was exercised against it: schema contract exact (23 tables/154 columns), typecheck + 40/40 tests + build PASS, auth/IDOR/security/CORS/concurrency/observability/migration-safety verified (LOCAL PASS). One HIGH defect was found and fixed this stage: non-atomic refresh-token rotation allowed concurrent replay (4/5 concurrent refreshes succeeded); fixed with an atomic UPDATE...RETURNING claim and re-verified (exactly 1 success per token).",
+  "baseline": {
+    "current_head": "8abc66b",
+    "branch": "arena/01a05271-life-xp",
+    "remote_head": "8abc66b",
+    "remote_synchronized": true,
+    "working_tree_clean": true,
+    "tracked_files": 157,
+    "stage10_commits_present": ["7533e65", "7366c87", "6f4b4e8", "639f943", "c0ea8f3"],
+    "reset_note": "Sandbox was reset between Stage 10 and Stage 11 (local HEAD reverted to 25cbdf2); recovered from remote after confirming c0ea8f3 via git reset --hard. No work lost."
   },
   "environment_inventory": {
-    "DATABASE_URL": "NOT SET -> BLOCKED",
-    "GROQ_API_KEY": "NOT SET -> BLOCKED",
-    "SESSION_SECRET": "NOT SET (audit value supplied locally)",
-    "PORT": "NOT SET (4325 supplied locally)",
-    "object_storage_sidecar": "NOT AVAILABLE -> BLOCKED",
-    "browser_automation": "NOT AVAILABLE -> BLOCKED",
-    "isolated_pglite": "RECREATED (127.0.0.1:5433, maxConnections=10, local-only)"
+    "DATABASE_URL": { "present": false, "classification": "BLOCKED" },
+    "GROQ_API_KEY": { "present": false, "classification": "BLOCKED" },
+    "object_storage_sidecar": { "present": false, "classification": "BLOCKED" },
+    "browser_automation": { "present": false, "classification": "BLOCKED" },
+    "isolated_pglite": { "present": true, "note": "127.0.0.1:5433, maxConnections=10, LOCAL-ONLY (not a production DB)" }
   },
-  "result_categories": {
-    "verified_in_real_production": [],
-    "verified_locally": ["backend boot/health", "auth (incl. refresh rotation)", "IDOR", "security smoke", "concurrency", "CORS", "observability", "migration safety", "frontend static serving", "schema contract", "typecheck", "tests", "build"],
-    "blocked_by_missing_infrastructure": ["real PostgreSQL", "real AI/Groq", "real object storage", "browser E2E"],
-    "unverified": ["live AI generation + provider error/timeout", "object storage upload/ACL/traversal at runtime", "multi-instance migration race"]
-  },
-  "classification_matrix": {
-    "REAL_DB": "BLOCKED",
-    "REAL_AI": "BLOCKED (no-key degradation verified)",
+  "strict_classification": {
+    "REAL_DATABASE": "BLOCKED",
+    "REAL_AI": "BLOCKED (no-key degradation LOCAL PASS)",
     "REAL_OBJECT_STORAGE": "BLOCKED",
-    "REAL_BACKEND": "PASS (local, production build)",
-    "REAL_FRONTEND": "PASS (local, static build; browser interaction BLOCKED)",
+    "REAL_BACKEND": "LOCAL PASS (production build)",
+    "REAL_FRONTEND": "LOCAL PASS (static build; browser BLOCKED)",
     "BROWSER_E2E": "BLOCKED",
-    "SECURITY": "PASS (local)",
-    "CONCURRENCY": "PASS (local)",
-    "MIGRATION_SAFETY": "PASS (forward-only, idempotent)",
-    "OBSERVABILITY": "PASS (no secret leakage)"
+    "AUTHENTICATION": "LOCAL PASS (incl. refresh rotation)",
+    "SECURITY": "LOCAL PASS",
+    "CONCURRENCY": "LOCAL PASS (real-PG BLOCKED)",
+    "MIGRATIONS": "LOCAL PASS",
+    "OBSERVABILITY": "LOCAL PASS",
+    "PERFORMANCE": "LOCAL PASS",
+    "SCHEMA_CONTRACT": "LOCAL PASS",
+    "TYPECHECK_TESTS_BUILD": "LOCAL PASS",
+    "LIVE_AI_GENERATION_AND_ERRORS": "UNVERIFIED",
+    "OBJECT_STORAGE_RUNTIME": "UNVERIFIED",
+    "MULTI_INSTANCE_MIGRATION_RACE": "UNVERIFIED"
   },
   "automated_evidence": {
     "automated_tests": "40/40 PASS",
@@ -56,29 +58,40 @@
       "location": "artifacts/api-server/src/routes/auth.ts (POST /auth/refresh)",
       "issue": "non-atomic refresh-token rotation allowed concurrent replay (TOCTOU)",
       "reproduction": "5 concurrent /auth/refresh with same token -> up to 4x 200",
-      "fix": "atomic UPDATE ... SET revoked_at ... WHERE revoked_at IS NULL RETURNING",
+      "fix": "atomic UPDATE ... SET revoked_at ... WHERE revoked_at IS NULL AND expires_at > now() RETURNING user_id",
       "test": "refresh-rotation.test.ts",
       "commit": "60b956a"
     },
-    { "id": "LOW-1", "severity": "LOW", "status": "NOTED", "note": "server-side stack traces for CORS-rejection and malformed JSON (log noise only, no client disclosure)" },
-    { "id": "LOW-2", "severity": "LOW", "status": "NOTED", "note": "multi-instance migration race (drizzle-kit migrate has no advisory lock)" }
+    { "id": "LOW-1", "severity": "LOW", "status": "NOTED", "note": "server-side stack traces for CORS-rejection and malformed JSON (log noise, no client disclosure)" },
+    { "id": "LOW-2", "severity": "LOW", "status": "NOTED", "note": "multi-instance migration race (drizzle-kit migrate has no advisory lock)" },
+    { "id": "FIND-10-1", "severity": "MEDIUM", "status": "CARRIED", "note": "transitive uuid <11.1.1 advisory via @google-cloud/storage>gaxios" },
+    { "id": "FIND-10-2", "severity": "LOW", "status": "CARRIED", "note": "quests/recommended uncapped limit on small public catalogue" },
+    { "id": "FIND-10-3", "severity": "LOW", "status": "CARRIED", "note": "HTML 404 for unknown route (cosmetic)" },
+    { "id": "FIND-10-4", "severity": "LOW", "status": "CARRIED", "note": "605 KB web bundle; code-splitting recommended" }
   ],
   "auth_results": {
     "register": 201, "duplicate_email": 409, "duplicate_username": 409,
     "weak_password": 400, "login": 200, "wrong_password": 401,
-    "me": 200, "refresh": 200, "refresh_reuse": 401, "invalid_jwt": 401
+    "me": 200, "refresh": 200, "refresh_rotation": 200,
+    "refresh_reuse": 401, "logout": "revokes refresh", "revoked_refresh": 401,
+    "invalid_jwt": 401, "expired_jwt": 401
   },
   "security_results": {
-    "malformed_uuid": 400, "sql_injection": 401, "malformed_json": 400,
-    "nul_byte": "sanitized (201)", "idor_post_delete": 404,
-    "idor_conv_read": 403, "idor_conv_send": 403, "idor_quest": 404,
-    "sse_member": 200, "sse_nonmember": 403, "sse_garbage": 401
+    "malformed_uuid": 400, "malformed_json": 400, "unexpected_json_types": 400,
+    "nul_byte": "sanitized (no 500)", "sql_injection": 401, "oversized_input": "bounded",
+    "idor_post_delete": 404, "idor_post_access": 404, "idor_quest": 404,
+    "idor_msg_read": 403, "idor_msg_send": 403,
+    "sse_member": 200, "sse_nonmember": 403, "sse_garbage": 401,
+    "object_authorization": "BLOCKED"
   },
   "concurrency_results": {
-    "triple_like_count": 3,
-    "triple_unlike_count": 0,
-    "duplicate_follow": "idempotent",
-    "refresh_race_after_fix": "exactly 1 success per token (5/5 runs)"
+    "triple_duplicate_like": "likes_count=3 (no drift)",
+    "triple_unlike": "likes_count=0 (exact)",
+    "duplicate_follow": "idempotent (1 row)",
+    "refresh_race_after_fix": "exactly 1 success per token (5/5 runs)",
+    "quest_completion": "ownership-guarded",
+    "message_creation": "membership-guarded",
+    "connection_leaks": "none observed"
   },
   "ai_degradation": {
     "chat": "503 'AI coach is not configured. Add GROQ_API_KEY to enable.'",
@@ -94,10 +107,16 @@
     "credentialed": "Allow-Credentials true, no wildcard"
   },
   "final_decision": "CONDITIONAL GO",
-  "to_reach_go": [
-    "Real PostgreSQL DATABASE_URL (prod or staging)",
-    "Real GROQ_API_KEY",
-    "Object-storage sidecar",
-    "Browser automation (Playwright/Chromium)"
+  "what_prevents_go": [
+    "Real PostgreSQL DATABASE_URL not provisioned (schema/CRUD evidence is isolated-PGlite only)",
+    "Real GROQ_API_KEY not available (live AI generation + provider errors/timeouts unverified)",
+    "Object-storage sidecar not available (upload/ACL/retrieval/traversal unverified at runtime)",
+    "Browser automation not available (full E2E user journey not executed in a browser)"
+  ],
+  "required_to_reach_go": [
+    "Real production/staging DATABASE_URL for read-only schema comparison + disposable-record CRUD smoke",
+    "Real GROQ_API_KEY for live AI chat/goals/daily-tasks/tip + provider failure/timeout behavior",
+    "Object-storage sidecar for upload/ACL/retrieval/traversal/isolation testing",
+    "Browser automation (Playwright/Chromium) for the complete E2E journey"
   ]
 }
