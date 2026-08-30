@@ -83,14 +83,25 @@ router.patch("/me/profile-extra", async (req, res) => {
   const userId = req.user!.sub;
   const { bio, age, weightKg, heightCm, avatarUrl } = req.body ?? {};
 
+  // Validate numeric fields so malformed values surface as 400 rather than a
+  // Postgres cast error (500).
+  const parsedAge = age !== undefined && age !== null ? Number(age) : null;
+  const parsedHeight = heightCm !== undefined && heightCm !== null ? Number(heightCm) : null;
+  const parsedWeight = weightKg !== undefined && weightKg !== null ? Number(weightKg) : null;
+  for (const [name, v] of [["age", parsedAge], ["heightCm", parsedHeight], ["weightKg", parsedWeight]] as const) {
+    if (v !== null && !Number.isFinite(v)) {
+      res.status(400).json({ message: `${name} must be a number` }); return;
+    }
+  }
+
   await db.execute(sql`
     INSERT INTO user_profiles (user_id, bio, age, weight_kg, height_cm, avatar_url, created_at, updated_at)
     VALUES (
       ${userId},
       ${bio ?? null},
-      ${age !== undefined ? Number(age) : null},
-      ${weightKg !== undefined ? String(weightKg) : null},
-      ${heightCm !== undefined ? Number(heightCm) : null},
+      ${parsedAge},
+      ${parsedWeight !== null ? String(parsedWeight) : null},
+      ${parsedHeight},
       ${avatarUrl ?? null},
       NOW(), NOW()
     )

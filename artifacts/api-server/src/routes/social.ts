@@ -174,7 +174,9 @@ router.post("/posts", async (req, res) => {
   if (!caption && !imageUrl && !videoUrl) {
     res.status(400).json({ message: "Post must have content" }); return;
   }
-  const tags: string[] = Array.isArray(hashtags) ? hashtags.map((t: string) => t.toLowerCase().replace(/^#/, "")) : [];
+  const tags: string[] = Array.isArray(hashtags)
+    ? hashtags.filter((t: unknown): t is string => typeof t === "string").map((t) => t.toLowerCase().replace(/^#/, ""))
+    : [];
   const type = postType === "clip" ? "clip" : "post";
   const [row] = await db
     .insert(postsTable)

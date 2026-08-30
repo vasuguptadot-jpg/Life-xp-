@@ -55,6 +55,29 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Strip NUL bytes (U+0000) from parsed bodies. PostgreSQL text columns reject
+// U+0000 with "invalid byte sequence for encoding UTF8", which would otherwise
+// surface as an unhandled 500 for any free-text field. Removing them is safe —
+// they carry no meaning in JSON strings.
+function stripNullBytes(value: unknown): unknown {
+  if (typeof value === "string") return value.replace(/\u0000/g, "");
+  if (Array.isArray(value)) return value.map(stripNullBytes);
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = stripNullBytes(v);
+    }
+    return out;
+  }
+  return value;
+}
+app.use((req, _res, next) => {
+  if (req.body && typeof req.body === "object") {
+    req.body = stripNullBytes(req.body) as typeof req.body;
+  }
+  next();
+});
+
 app.use("/api", router);
 
 // ── Global error handler ──────────────────────────────────────────────────────

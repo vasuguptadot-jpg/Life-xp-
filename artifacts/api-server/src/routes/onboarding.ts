@@ -104,11 +104,16 @@ router.post("/goals", async (req, res) => {
     res.status(400).json({ message: "goals must be a non-empty array" });
     return;
   }
+  const validGoals = goals.filter((g: unknown): g is string => typeof g === "string" && g.length > 0);
+  if (validGoals.length === 0) {
+    res.status(400).json({ message: "goals must be a non-empty array of strings" });
+    return;
+  }
 
   await db.delete(userGoalsTable).where(eq(userGoalsTable.userId, userId));
 
   await db.insert(userGoalsTable).values(
-    goals.map((goalKey: string) => ({
+    validGoals.map((goalKey: string) => ({
       userId,
       goalKey,
       isPrimary: goalKey === primaryGoal,
