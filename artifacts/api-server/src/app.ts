@@ -60,7 +60,7 @@ app.use("/api", router);
 // ── Global error handler ──────────────────────────────────────────────────────
 // Must have 4 parameters so Express recognises it as an error handler.
 // Catches all unhandled route errors, logs them safely, and returns a
-// structured JSON 500 — never leaking raw DB/stack details to clients.
+// structured JSON error — never leaking raw DB/stack details to clients.
 app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
   const safeErr = err instanceof Error ? err : new Error(String(err));
 
@@ -72,7 +72,21 @@ app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
     return;
   }
 
-  res.status(500).json({ message: "Internal server error" });
+  // Respect client-error status codes (e.g. body-parser sets status 400 for
+  // malformed JSON), otherwise fall back to a generic 500.
+  const status =
+    typeof err === "object" &&
+    err !== null &&
+    "status" in err &&
+    typeof (err as { status: unknown }).status === "number" &&
+    (err as { status: number }).status >= 400 &&
+    (err as { status: number }).status < 500
+      ? (err as { status: number }).status
+      : 500;
+
+  res
+    .status(status)
+    .json({ message: status >= 500 ? "Internal server error" : "Invalid request" });
 });
 
 export default app;

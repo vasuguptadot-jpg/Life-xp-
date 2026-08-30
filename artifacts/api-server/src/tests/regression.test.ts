@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import bcrypt from "bcryptjs";
+import request from "supertest";
+import express from "express";
 
 // SESSION_SECRET is provided by vitest.config.ts `env`. lib/auth reads it at
 // import time, so import it lazily inside the tests (after env is set).
@@ -47,5 +49,19 @@ describe("startup — optional AI provider (BUG-3 regression)", () => {
 
   it("imports the full app without GROQ_API_KEY set", async () => {
     await expect(import("../app")).resolves.toBeTruthy();
+  });
+});
+
+describe("error handling — malformed JSON returns 400 (not 500)", () => {
+  it("returns 400 for a malformed JSON body without leaking internals", async () => {
+    const { default: app } = await import("../app");
+    const res = await request(app)
+      .post("/api/auth/signup")
+      .set("Content-Type", "application/json")
+      .send('{"email": "not-closed"');
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe("Invalid request");
+    // no stack/DB details leaked
+    expect(JSON.stringify(res.body)).not.toMatch(/node_modules|postgres|at /);
   });
 });
