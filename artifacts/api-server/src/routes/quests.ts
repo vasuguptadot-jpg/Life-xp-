@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { questTemplatesTable, userQuestsTable } from "@workspace/db/schema";
 import { requireAuth } from "../lib/auth";
 import { awardXp, isValidAttribute, type AttributeAward } from "../lib/progression";
+import { isValidUuid } from "../lib/uuid";
 
 const router = Router();
 router.use(requireAuth);
@@ -114,6 +115,7 @@ router.post("/assign/:templateId", async (req, res) => {
 // GET /api/quests/:id
 router.get("/:id", async (req, res) => {
   const userId = req.user!.sub;
+  if (!isValidUuid(req.params.id)) { res.status(400).json({ message: "Invalid quest id" }); return; }
   const [quest] = await db
     .select()
     .from(userQuestsTable)
@@ -131,6 +133,7 @@ router.get("/:id", async (req, res) => {
 // PATCH /api/quests/:id/progress
 router.patch("/:id/progress", async (req, res) => {
   const userId = req.user!.sub;
+  if (!isValidUuid(req.params.id)) { res.status(400).json({ message: "Invalid quest id" }); return; }
   const progress = Number(req.body?.progress);
 
   if (isNaN(progress) || progress < 0) {
@@ -185,6 +188,7 @@ router.patch("/:id/progress", async (req, res) => {
 router.post("/:id/abandon", async (req, res) => {
   const userId = req.user!.sub;
   const questId = req.params.id;
+  if (!isValidUuid(questId)) { res.status(400).json({ message: "Invalid quest id" }); return; }
 
   const [quest] = await db
     .select()
@@ -225,6 +229,7 @@ router.post("/:id/abandon", async (req, res) => {
 router.post("/:id/complete", async (req, res) => {
   const userId = req.user!.sub;
   const questId = req.params.id;
+  if (!isValidUuid(questId)) { res.status(400).json({ message: "Invalid quest id" }); return; }
 
   // Step 1: Verify ownership
   const [quest] = await db

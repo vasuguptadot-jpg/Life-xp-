@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { usersTable, userLevelsTable, userProfilesTable, postsTable, postLikesTable } from "@workspace/db/schema";
 import { requireAuth } from "../lib/auth";
 import { ObjectStorageService } from "../lib/objectStorage";
+import { isValidUuid } from "../lib/uuid";
 import multer from "multer";
 
 const router = Router();
@@ -33,6 +34,7 @@ router.get("/leaderboard", async (req, res) => {
 // ── Public user profile ──────────────────────────────────────────────────────
 router.get("/users/:id", async (req, res) => {
   const { id } = req.params;
+  if (!isValidUuid(id)) { res.status(400).json({ message: "Invalid user id" }); return; }
   const viewerId = req.user!.sub;
 
   const [user] = await db.select({
@@ -66,6 +68,7 @@ router.get("/users/:id", async (req, res) => {
 router.post("/users/:id/follow", async (req, res) => {
   const followerId = req.user!.sub;
   const followingId = req.params.id;
+  if (!isValidUuid(followingId)) { res.status(400).json({ message: "Invalid user id" }); return; }
   if (followerId === followingId) { res.status(400).json({ message: "Cannot follow yourself" }); return; }
   await db.execute(sql`INSERT INTO follows (follower_id, following_id) VALUES (${followerId}, ${followingId}) ON CONFLICT DO NOTHING`);
   res.json({ following: true });
@@ -74,6 +77,7 @@ router.post("/users/:id/follow", async (req, res) => {
 router.delete("/users/:id/follow", async (req, res) => {
   const followerId = req.user!.sub;
   const followingId = req.params.id;
+  if (!isValidUuid(followingId)) { res.status(400).json({ message: "Invalid user id" }); return; }
   await db.execute(sql`DELETE FROM follows WHERE follower_id = ${followerId} AND following_id = ${followingId}`);
   res.json({ following: false });
 });
@@ -186,6 +190,7 @@ router.post("/posts", async (req, res) => {
 
 router.delete("/posts/:id", async (req, res) => {
   const userId = req.user!.sub;
+  if (!isValidUuid(req.params.id)) { res.status(400).json({ message: "Invalid post id" }); return; }
   const deleted = await db
     .delete(postsTable)
     .where(and(eq(postsTable.id, req.params.id), eq(postsTable.userId, userId)))
@@ -199,6 +204,7 @@ router.delete("/posts/:id", async (req, res) => {
 router.post("/posts/:id/like", async (req, res) => {
   const userId = req.user!.sub;
   const postId = req.params.id;
+  if (!isValidUuid(postId)) { res.status(400).json({ message: "Invalid post id" }); return; }
   const [inserted] = await db
     .insert(postLikesTable)
     .values({ userId, postId })
@@ -213,6 +219,7 @@ router.post("/posts/:id/like", async (req, res) => {
 router.delete("/posts/:id/like", async (req, res) => {
   const userId = req.user!.sub;
   const postId = req.params.id;
+  if (!isValidUuid(postId)) { res.status(400).json({ message: "Invalid post id" }); return; }
   const [removed] = await db
     .delete(postLikesTable)
     .where(and(eq(postLikesTable.userId, userId), eq(postLikesTable.postId, postId)))
