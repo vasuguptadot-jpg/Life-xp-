@@ -1,0 +1,102 @@
+{
+  "stage": 6,
+  "title": "Stage 6 — Remediation, Git Recovery, and Regression Validation",
+  "recorded_at": "2026-08-30",
+  "branch": "arena/01a05271-life-xp",
+  "final_classification": "YELLOW",
+  "summary": "All three Stage 5 defects (BUG-1 hashtag array, BUG-2 conversation UUID, BUG-3 Groq startup) plus two additional defects found during Stage 6 regression (like/unlike multi-statement SQL, misleading delete response) are FIXED and VERIFIED with executable proof. A minimal vitest regression suite now runs under pnpm test. Remaining gaps are environmental (no GROQ key, no object-storage sidecar, no live production DB) and are classified CONFIGURATION BLOCKED, not code defects.",
+  "defects": [
+    {
+      "id": "BUG-1",
+      "area": "social",
+      "endpoint": "POST /api/social/posts",
+      "severity": "BLOCKER",
+      "status": "FIXED",
+      "verification": "VERIFIED",
+      "fix": "Replaced raw-SQL array interpolation (JSON.stringify(tags)::text[]) with typed ORM db.insert(postsTable).values({hashtags: tags}).returning().",
+      "proof": "4 smoke cases (no tags, one, multiple, special chars) all return 201 with correct arrays; vitest db-regression covers empty + special-char arrays."
+    },
+    {
+      "id": "BUG-2",
+      "area": "messaging",
+      "endpoint": "POST /api/messages/conversations",
+      "severity": "BLOCKER",
+      "status": "FIXED",
+      "verification": "VERIFIED",
+      "fix": "Added UUID_RE validation and ::uuid casts in the conversation-create CTE member insert; duplicate member IDs handled via DISTINCT; invalid UUIDs rejected with 400.",
+      "proof": "Valid UUID 201, invalid UUID 400 (smoke); vitest db-regression creates a 2-member conversation."
+    },
+    {
+      "id": "BUG-3",
+      "area": "startup",
+      "endpoint": "server startup (module load)",
+      "severity": "HIGH",
+      "status": "FIXED",
+      "verification": "VERIFIED",
+      "fix": "Removed module-load new Groq(...) from social.ts. AI provider is instantiated lazily per request (getGroq()), and all AI handlers guard on process.env.GROQ_API_KEY.",
+      "proof": "Server boots with no GROQ_API_KEY; /api/ai/chat returns 503, /api/ai/daily-tasks returns [], /api/ai/life-tip returns static fallback. vitest regression imports social route + full app with GROQ_API_KEY unset."
+    },
+    {
+      "id": "BUG-4",
+      "area": "social",
+      "endpoint": "POST/DELETE /api/social/posts/:id/like",
+      "severity": "HIGH",
+      "status": "FIXED",
+      "verification": "VERIFIED",
+      "discovered_in": "stage6",
+      "fix": "Split multi-statement raw SQL into typed ORM insert/delete with onConflictDoNothing/returning, then a separate counter UPDATE only when a row was actually inserted/removed.",
+      "proof": "like 200, duplicate-like keeps likes_count at 1, unlike 200, duplicate-unlike keeps count at 0 (smoke)."
+    },
+    {
+      "id": "BUG-5",
+      "area": "social",
+      "endpoint": "DELETE /api/social/posts/:id",
+      "severity": "MEDIUM",
+      "status": "FIXED",
+      "verification": "VERIFIED",
+      "discovered_in": "stage6",
+      "fix": "Return 404 when no owned row was deleted (added RETURNING id + row-count check). Ownership was already enforced at SQL level (WHERE id = X AND user_id = Y); response is now truthful.",
+      "proof": "Cross-user delete 404, owner delete 200 and row actually removed, nonexistent post 404 (smoke)."
+    }
+  ],
+  "regression": {
+    "automated_suite": "PRESENT",
+    "test_command": "pnpm --filter @workspace/api-server test",
+    "tests": {
+      "without_database": "6 passed, 3 skipped",
+      "with_isolated_database": "9 passed, 0 skipped"
+    },
+    "suites": [
+      "src/tests/regression.test.ts (JWT sign/verify/tamper/expiry, bcrypt, GROQ-optional module load, full app import)",
+      "src/tests/db-regression.test.ts (hashtag array empty/special-chars, conversation 2-member UUID) — gated on TEST_DATABASE_URL"
+    ]
+  },
+  "verification": {
+    "health": "PASS",
+    "auth": "PASS",
+    "social": "PASS",
+    "messaging": "PASS",
+    "ai_without_key": "PASS (graceful degradation)",
+    "ai_with_key": "CONFIGURATION_BLOCKED (no GROQ_API_KEY)",
+    "object_storage": "CONFIGURATION_BLOCKED (no sidecar; fail-safe verified)",
+    "live_database": "CONFIGURATION_BLOCKED (no DATABASE_URL; isolated PG16 verified)",
+    "browser_e2e": "UNVERIFIED",
+    "cors": "PRE-EXISTING (cosmetic 500 for disallowed origin; browser still blocks; not a security bypass)",
+    "sse_auth": "PASS (401 without token)",
+    "migrations": "PASS (62 statements -> 23 public tables on fresh PG16)",
+    "typecheck": "PASS (libs + api-server + web + scripts, zero errors)",
+    "build": "PASS (api-server + web; web requires PORT/BASE_PATH which Replit injects)",
+    "secret_scan": "PASS (no secrets in source; only test fixtures)"
+  },
+  "git": {
+    "baseline": "grafted HEAD 25cbdf2; Stage 3/4 commits absent from history",
+    "recovery": "Minimized on-disk state committed to arena/01a05271-life-xp (deletions + Stage 4 reconciliation + Stage 6 fixes/tests/docs) without restoring the 2422-file pre-minimization tree",
+    "clean_after_commit": true
+  },
+  "unmet_acceptance_criteria": [
+    "AI generation with a real GROQ key could not be exercised (no credential available) — CONFIGURATION BLOCKED.",
+    "Object-storage upload/download against a live sidecar could not be exercised (no sidecar) — CONFIGURATION BLOCKED.",
+    "Live production database schema comparison could not be performed (no DATABASE_URL) — CONFIGURATION BLOCKED.",
+    "Browser end-to-end flows could not be exercised (no browser runtime) — UNVERIFIED (build-level only)."
+  ]
+}
