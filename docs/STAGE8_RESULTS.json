@@ -1,0 +1,165 @@
+{
+  "stage": 8,
+  "title": "Stage 8 — Production Environment Validation & Release Gate",
+  "recorded_at": "2026-08-30",
+  "branch": "arena/01a05271-life-xp",
+  "head": "92d3d5b",
+  "final_classification": "YELLOW",
+  "release_decision": "CONDITIONAL GO",
+  "summary": "Production-environment validation of the LifeXP release candidate. The repository, clean-checkout reproduction, isolated-DB schema, migrations, seed idempotency, real backend startup matrix, full auth/user journey, social E2E, messaging/SSE E2E, security checks, and resilience/performance sanity all PASS. One new real defect was found and fixed (malformed UUID in :id params -> 500 instead of 400, same class as BUG-4). Live AI (no GROQ_API_KEY), live object storage (no sidecar), live production/staging PostgreSQL (no DATABASE_URL), and browser E2E (no browser) remain BLOCKED/UNVERIFIED, holding the verdict at YELLOW.",
+  "environment_reset_notice": {
+    "detected": true,
+    "description": "Local git repository was reset to a fresh clone at 25cbdf2 (2422 tracked files, pre-minimization). Verified via reflog (clone -> checkout) and git ls-remote.",
+    "recovery": "All Stage 3-7 work was confirmed intact on the remote at c38fb68 (139 files). Recovered with git reset --hard c38fb68 after user confirmation. Nothing lost.",
+    "verified_after_recovery": true
+  },
+  "environment_inventory": {
+    "DATABASE_URL": "MISSING",
+    "SESSION_SECRET": "MISSING",
+    "PORT": "MISSING",
+    "BASE_PATH": "NOT APPLICABLE (not required by this deployment harness)",
+    "GROQ_API_KEY": "MISSING",
+    "CORS_ORIGINS": "MISSING",
+    "object_storage_credentials": "MISSING",
+    "isolated_pglite_harness": "RECREATED (in-memory, 127.0.0.1:5433, maxConnections=10)"
+  },
+  "clean_checkout_reproduction": {
+    "install": "PASS (pnpm 10.34.5, --frozen-lockfile, exit 0)",
+    "typecheck": "PASS (libs/web/api/scripts, exit 0)",
+    "test_no_db": "7 passed / 17 skipped",
+    "test_with_db": "24 passed / 0 failed",
+    "build_web": "PASS (exit 0; single >500kB chunk warning only)",
+    "build_api": "PASS (exit 0)",
+    "tooling_note": "pnpm 11.24.0 (default in sandbox) fails the frozen install with ERR_PNPM_IGNORED_BUILDS and injects an allowBuilds placeholder into pnpm-workspace.yaml; pinned pnpm 10.34.5 matches the lockfile. Not an app defect."
+  },
+  "database_validation": {
+    "production_db_available": false,
+    "live_db_schema_match": "BLOCKED (no DATABASE_URL / production database present)",
+    "isolated_db_reproduction": {
+      "fresh_db_from_zero": "PASS (23 tables, 62 statements)",
+      "schema_contract_match": "PASS (154 columns, 23 tables, all match docs/DATABASE_CONTRACT.json)",
+      "primary_keys": 20,
+      "foreign_keys": 25,
+      "unique_constraints": 16,
+      "migration_safety": "PASS (applied from zero with no manual SQL; no destructive operations)",
+      "seed_idempotency": "PASS (run 1: 7 created; run 2: 7 skipped, 0 duplicates)"
+    }
+  },
+  "startup_matrix": {
+    "missing_DATABASE_URL": "FAIL_FAST (clear error, exit 1)",
+    "missing_SESSION_SECRET": "FAIL_FAST (clear error, exit 1)",
+    "missing_PORT": "FAIL_FAST (clear error, exit 1)",
+    "missing_GROQ_API_KEY": "DEGRADES_GRACEFULLY (server operational; non-AI works)",
+    "object_storage_unavailable": "DEGRADES_GRACEFULLY (non-storage features operational)",
+    "health_endpoint": "PASS (200 {\"status\":\"ok\"})",
+    "db_connection_check": "PASS (Database connectivity verified)"
+  },
+  "auth_journey": {
+    "register": "PASS",
+    "duplicate_email": "PASS (409)",
+    "duplicate_username": "PASS (409)",
+    "login": "PASS",
+    "invalid_password": "PASS (401)",
+    "password_never_returned": "PASS",
+    "refresh_rotation": "PASS (new refresh token issued)",
+    "refresh_replay": "PASS (rejected 401)",
+    "logout_revocation": "PASS (refresh after logout 401)",
+    "onboarding": "PASS",
+    "profile_extra": "PASS (bio/age/avatar persisted)",
+    "goals": "PASS",
+    "xp_level": "PASS",
+    "leaderboard": "PASS",
+    "unauthorized": "PASS (no token 401, invalid token 401)",
+    "re_login": "PASS"
+  },
+  "social_e2e": {
+    "create_post": "PASS (201)",
+    "hashtags_persisted": "PASS (2 tags, array)",
+    "cross_user_feed": "PASS",
+    "like": "PASS",
+    "duplicate_like_no_double_count": "PASS (likes_count stays 1)",
+    "unlike": "PASS",
+    "cross_user_delete": "PASS (404)",
+    "follow": "PASS",
+    "view_profile": "PASS",
+    "nonexistent_delete": "PASS (404)",
+    "owner_delete": "PASS (200)"
+  },
+  "messaging_sse_e2e": {
+    "create_conversation": "PASS (201)",
+    "send_message": "PASS",
+    "retrieve_messages": "PASS",
+    "sse_member_token": "PASS (200 event-stream)",
+    "sse_non_member": "PASS (403)",
+    "cross_user_read": "PASS (403)",
+    "cross_user_send": "PASS (403)",
+    "sse_invalid_token": "PASS (401)",
+    "sse_no_token": "PASS (401)"
+  },
+  "ai_validation": {
+    "live_validation": "BLOCKED (no GROQ_API_KEY)",
+    "no_key_graceful_degradation": "PASS (chat 503 'not configured', daily-tasks [], life-tip fallback, history [], non-AI works, no key leak)"
+  },
+  "object_storage_validation": "BLOCKED (no object-storage sidecar/infrastructure)",
+  "browser_e2e": "BLOCKED (no browser automation environment; build-level verification only)",
+  "security_findings": [
+    {
+      "id": "S8-FIX-1",
+      "severity": "LOW",
+      "classification": "FIXED",
+      "area": "input validation",
+      "description": "10 routes in social.ts and quests.ts passed unvalidated :id params to PostgreSQL -> 'invalid input syntax for type uuid' -> 500. Same class as BUG-4 (fixed only for conversations).",
+      "fix": "Added shared isValidUuid() (lib/uuid.ts) and guarded all affected routes -> 400.",
+      "evidence": "Live: DELETE /posts/not-a-uuid -> 500 before, 400 after; regression test uuid-validation.test.ts (10 cases)."
+    }
+  ],
+  "security_checks_pass": [
+    "SQL injection (parameterized queries; injected email/tag handled safely)",
+    "IDOR / cross-user access (posts, conversations, quests, profiles)",
+    "refresh-token replay rejected",
+    "password never returned; bcrypt verified",
+    "no secrets in error responses",
+    "CORS allow-list enforced (allowed origin ACAO present; disallowed origin no ACAO)",
+    "path traversal blocked (404)",
+    "malformed JSON -> 400",
+    "rate limiting active (auth max 10/15min, refresh max 30/15min)",
+    "no user enumeration (identical response for unknown email vs wrong password)"
+  ],
+  "resilience": {
+    "invalid_json": "PASS (400)",
+    "invalid_uuid": "PASS (400, after fix)",
+    "nonexistent_resource": "PASS (404)",
+    "expired_token": "PASS (401)",
+    "unauthorized": "PASS (401)",
+    "no_stack_traces": "PASS",
+    "no_secrets_in_logs": "PASS"
+  },
+  "performance_sanity": {
+    "feed_pagination": "PASS (capped 100)",
+    "message_list_pagination": "PASS (capped 100)",
+    "chat_history_limit": "PASS (capped 50)",
+    "leaderboard_limit": "PASS (capped 100)",
+    "sse_cleanup": "PASS (heartbeat + clearInterval on close)",
+    "upload_limit": "INFO (multer 150MB explicit cap)",
+    "conversations_list_unbounded": "LOW (user's own conversations, naturally small; no pagination)",
+    "n_plus_one": "NONE OBSERVED (bounded queries, Promise.all over <=3 bounded queries)"
+  },
+  "remaining_risks": [
+    "BLOCKED: live AI generation (no GROQ_API_KEY).",
+    "BLOCKED: live object storage ACL/upload/IDOR (no sidecar).",
+    "BLOCKED: live production/staging PostgreSQL schema comparison (no DATABASE_URL).",
+    "UNVERIFIED: browser E2E (no browser).",
+    "LOW: conversations list lacks pagination.",
+    "LOW: disallowed CORS origin surfaces as 500 (no ACAO header emitted, browsers still block; cosmetic).",
+    "INFO: rate limiter is in-memory (single-instance only)."
+  ],
+  "blocked": [
+    "AI_LIVE_VALIDATION (no GROQ_API_KEY)",
+    "OBJECT_STORAGE_VALIDATION (no storage infrastructure)",
+    "LIVE_DB_VALIDATION (no production/staging DATABASE_URL)"
+  ],
+  "unverified": [
+    "BROWSER_E2E (no browser automation)",
+    "GET /api/progression/summary against real PostgreSQL (verified 200 against PGlite maxConnections=10; the earlier 500 was the single-connection harness, proven not an app defect)"
+  ]
+}
