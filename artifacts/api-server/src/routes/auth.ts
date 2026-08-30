@@ -157,9 +157,13 @@ router.post("/refresh", refreshLimiter, async (req, res) => {
   const hash = hashToken(refreshToken);
   const now = new Date();
 
-  const [stored] = await db
-    .select()
-    .from(refreshTokensTable)
+  // Atomically claim the token: set revokedAt in the SAME statement that
+  // checks it is still unrevoked and unexpired. On concurrent replays only one
+  // request matches the row (the others see revokedAt already set), so a
+  // rotated refresh token can never be replayed to mint a second token pair.
+  const [claimed] = await db
+    .update(refreshTokensTable)
+    .set({ revokedAt: now })
     .where(
       and(
         eq(refreshTokensTable.tokenHash, hash),
@@ -167,24 +171,18 @@ router.post("/refresh", refreshLimiter, async (req, res) => {
         gt(refreshTokensTable.expiresAt, now),
       ),
     )
-    .limit(1);
+    .returning({ id: refreshTokensTable.id, userId: refreshTokensTable.userId });
 
-  if (!stored) {
+  if (!claimed) {
     res.status(401).json({ message: "Invalid or expired refresh token" });
     return;
   }
-
-  // Revoke the old token (rotation)
-  await db
-    .update(refreshTokensTable)
-    .set({ revokedAt: now })
-    .where(eq(refreshTokensTable.id, stored.id));
 
   // Fetch user to include in new access token
   const [user] = await db
     .select({ id: usersTable.id, email: usersTable.email, isActive: usersTable.isActive })
     .from(usersTable)
-    .where(eq(usersTable.id, stored.userId))
+    .where(eq(usersTable.id, claimed.userId))
     .limit(1);
 
   if (!user || !user.isActive) {
