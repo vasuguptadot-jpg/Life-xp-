@@ -66,16 +66,37 @@ function archetypeScore(c: TaskCandidate, state: EngineUserState): number {
   return state.archetypeFocusAreas.includes(c.category) ? 1 : 0.4;
 }
 
-export function scoreCandidate(c: TaskCandidate, state: EngineUserState): number {
+export interface ScoreFactors {
+  goalRelevance: number;
+  difficultyFit: number;
+  weakness: number;
+  freshness: number;
+  streak: number;
+  archetype: number;
+  total: number;
+}
+
+/** Full factor breakdown for a candidate — enables transparent reason codes. */
+export function scoreCandidateFactors(c: TaskCandidate, state: EngineUserState): ScoreFactors {
   const goalAttrs = goalAttributes(state);
-  return (
-    WEIGHTS.goalRelevance * goalRelevanceScore(c, state, goalAttrs) +
-    WEIGHTS.difficultyFit * difficultyFitScore(c, state) +
-    WEIGHTS.weakness * weaknessScore(c, state) +
-    WEIGHTS.freshness * freshnessScore(c, state) +
-    WEIGHTS.streak * streakScore(c, state) +
-    WEIGHTS.archetype * archetypeScore(c, state)
-  );
+  const goalRelevance = goalRelevanceScore(c, state, goalAttrs);
+  const difficultyFit = difficultyFitScore(c, state);
+  const weakness = weaknessScore(c, state);
+  const freshness = freshnessScore(c, state);
+  const streak = streakScore(c, state);
+  const archetype = archetypeScore(c, state);
+  const total =
+    WEIGHTS.goalRelevance * goalRelevance +
+    WEIGHTS.difficultyFit * difficultyFit +
+    WEIGHTS.weakness * weakness +
+    WEIGHTS.freshness * freshness +
+    WEIGHTS.streak * streak +
+    WEIGHTS.archetype * archetype;
+  return { goalRelevance, difficultyFit, weakness, freshness, streak, archetype, total };
+}
+
+export function scoreCandidate(c: TaskCandidate, state: EngineUserState): number {
+  return scoreCandidateFactors(c, state).total;
 }
 
 /** Rank all templates for a user, deterministic tie-break by template id. */

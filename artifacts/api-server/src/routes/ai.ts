@@ -12,10 +12,24 @@ import { isValidUuid } from "../lib/uuid";
 import { awardXp, isValidAttribute } from "../lib/progression";
 import {
   buildEngineState,
+  buildAnalyticsState,
   countActiveQuests,
   countCompletedToday,
   detectIntent,
   buildIntentResponse,
+  buildProgressResponse,
+  buildDailyPlanResponse,
+  buildWeeklyReviewResponse,
+  buildWeaknessesResponse,
+  buildRecommendationsResponse,
+  buildGoalsResponse,
+  buildMomentumResponse,
+  computeMomentum,
+  detectWeaknesses,
+  recommendTasks,
+  decomposeGoals,
+  buildWeeklyReview,
+  composeDailyPlan,
   generateDailyTasks,
   generateDailyTip,
 } from "../lib/life-engine";
@@ -282,14 +296,54 @@ router.post("/chat", async (req, res) => {
       countActiveQuests(userId),
       countCompletedToday(userId),
     ]);
-    const reply = buildIntentResponse(intent, {
+    const view = {
       level: state.level,
       totalXp: state.totalXp,
       rank: state.rank,
       streak: state.streak,
       activeQuests,
       completedToday,
-    });
+    };
+
+    let reply: string;
+    switch (intent) {
+      case "progress": {
+        const as = await buildAnalyticsState(userId);
+        reply = buildProgressResponse(view, computeMomentum(as));
+        break;
+      }
+      case "daily_plan": {
+        reply = buildDailyPlanResponse(await composeDailyPlan(userId));
+        break;
+      }
+      case "weekly_review": {
+        const as = await buildAnalyticsState(userId);
+        reply = buildWeeklyReviewResponse(buildWeeklyReview(as, computeMomentum(as)));
+        break;
+      }
+      case "weaknesses": {
+        const as = await buildAnalyticsState(userId);
+        reply = buildWeaknessesResponse(detectWeaknesses(as));
+        break;
+      }
+      case "recommendations": {
+        const as = await buildAnalyticsState(userId);
+        reply = buildRecommendationsResponse(recommendTasks(as));
+        break;
+      }
+      case "goals": {
+        const as = await buildAnalyticsState(userId);
+        reply = buildGoalsResponse(decomposeGoals(as));
+        break;
+      }
+      case "momentum": {
+        const as = await buildAnalyticsState(userId);
+        reply = buildMomentumResponse(computeMomentum(as));
+        break;
+      }
+      default:
+        reply = buildIntentResponse(intent, view);
+    }
 
     await db.insert(aiChatMessagesTable).values({ userId, role: "user", content: userMsg });
     const [savedMsg] = await db

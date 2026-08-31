@@ -1,5 +1,5 @@
 import { ATTRIBUTES } from "@workspace/db/schema";
-import type { Attribute, TaskCandidate, TipRuleKey } from "./types";
+import type { Attribute, DifficultyLevel, TaskCandidate, TipRuleKey } from "./types";
 
 /**
  * Deterministic content libraries for the Life Engine.
@@ -110,6 +110,90 @@ export const TIP_LIBRARY: Record<TipRuleKey, TipEntry[]> = {
     { tip: "Small consistent actions compound into extraordinary results. Pick one thing to improve today.", category: "DISCIPLINE" },
     { tip: "The best plan is the one you actually do. Keep today's target small and finish it.", category: "DISCIPLINE" },
     { tip: "Progress is rarely dramatic. Trust the daily repetition — it's working even when it feels slow.", category: "DISCIPLINE" },
+  ],
+};
+
+// ── Difficulty constants (adaptive quest engine) ─────────────────────────────
+
+/** XP reward for a recommended quest at each difficulty level (bounded). */
+export const DIFFICULTY_XP: Record<DifficultyLevel, number> = {
+  EASY: 30,
+  MEDIUM: 50,
+  HARD: 80,
+};
+
+/** Ordered difficulty ladder for bounded adjustments. */
+export const DIFFICULTY_LADDER: readonly DifficultyLevel[] = ["EASY", "MEDIUM", "HARD"];
+
+/** Baseline difficulty derived from user level. */
+export function levelDifficulty(level: number): DifficultyLevel {
+  if (level < 5) return "EASY";
+  if (level < 12) return "MEDIUM";
+  return "HARD";
+}
+
+// ── Goal decomposition library (deterministic, predefined) ───────────────────
+
+export interface GoalTemplate {
+  key: string;
+  goal: string;
+  /** Free-text keywords used to map an unlabelled goal to this category. */
+  keywords: string[];
+  milestones: Array<{ title: string; weeklyObjectives: string[] }>;
+}
+
+export const GOAL_LIBRARY: GoalTemplate[] = [
+  {
+    key: "strength",
+    goal: "Build functional strength",
+    keywords: ["strength", "muscle", "lift", "gym", "weights", "stronger", "power"],
+    milestones: [
+      { title: "Foundations", weeklyObjectives: ["Complete 2 strength sessions per week", "Master bodyweight form for push, squat, hinge"] },
+      { title: "Progressive overload", weeklyObjectives: ["Add load or reps each week", "Track a compound lift benchmark"] },
+      { title: "Strength plateau", weeklyObjectives: ["Hold a 3-session weekly rhythm", "Deload and re-test your benchmark"] },
+    ],
+  },
+  {
+    key: "endurance",
+    goal: "Build cardiovascular endurance",
+    keywords: ["endurance", "cardio", "run", "running", "stamina", "jog", "aerobic"],
+    milestones: [
+      { title: "Base building", weeklyObjectives: ["Complete 2 easy cardio sessions per week", "Add 10% weekly volume"] },
+      { title: "Distance/pace", weeklyObjectives: ["Extend one long session each week", "Hold a consistent easy pace"] },
+      { title: "Endurance peak", weeklyObjectives: ["Hit a target distance", "Add one interval session per week"] },
+    ],
+  },
+  {
+    key: "mind",
+    goal: "Sharpen mind and knowledge",
+    keywords: ["mind", "knowledge", "learn", "study", "read", "focus", "brain", "skill"],
+    milestones: [
+      { title: "Daily learning", weeklyObjectives: ["Read 10 pages daily", "Take notes on one new idea per day"] },
+      { title: "Deep work", weeklyObjectives: ["Complete 3 focused 50-minute blocks weekly", "Summarize key takeaways"] },
+      { title: "Mastery", weeklyObjectives: ["Teach or apply a new concept", "Review and consolidate notes weekly"] },
+    ],
+  },
+  {
+    key: "discipline",
+    goal: "Build consistent habits and discipline",
+    keywords: ["discipline", "habit", "routine", "consistent", "consistency", "productivity", "schedule"],
+    milestones: [
+      { title: "Keystone habit", weeklyObjectives: ["Keep a fixed morning routine 5 days", "Plan 3 tasks the night before"] },
+      { title: "Habit chain", weeklyObjectives: ["Maintain a 7-day habit streak", "Protect one non-negotiable daily action"] },
+      { title: "Systems", weeklyObjectives: ["Automate one recurring decision", "Weekly review and next-week plan"] },
+    ],
+  },
+];
+
+/** Fallback decomposition when no goal matches any library entry. */
+export const GENERIC_GOAL: GoalTemplate = {
+  key: "general",
+  goal: "Make steady, measurable progress",
+  keywords: [],
+  milestones: [
+    { title: "Start small", weeklyObjectives: ["Pick one small daily action", "Do it every day this week"] },
+    { title: "Build consistency", weeklyObjectives: ["Protect a 7-day streak", "Add one new small action"] },
+    { title: "Compound", weeklyObjectives: ["Review weekly wins", "Choose the next smallest improvement"] },
   ],
 };
 

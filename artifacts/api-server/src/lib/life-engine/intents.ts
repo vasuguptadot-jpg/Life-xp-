@@ -1,4 +1,13 @@
-import type { EngineUserState, IntentKey } from "./types";
+import type {
+  DailyPlan,
+  DecomposedGoal,
+  IntentKey,
+  MomentumResult,
+  Recommendation,
+  StreakAnalysis,
+  WeeklyReview,
+  WeaknessResult,
+} from "./types";
 
 /**
  * Deterministic chat pre-processing layer.
@@ -10,11 +19,18 @@ import type { EngineUserState, IntentKey } from "./types";
  */
 
 const INTENT_PATTERNS: Array<{ key: IntentKey; words: string[] }> = [
+  { key: "daily_plan", words: ["daily plan", "what should i do today", "today's plan", "plan for today", "what do i do today"] },
+  { key: "weekly_review", words: ["weekly review", "this week", "week review", "how was my week", "week in review"] },
   { key: "completed_today", words: ["completed today", "complete today", "done today", "finished today", "completed so far", "today's tasks"] },
+  { key: "momentum", words: ["momentum", "on a roll", "losing steam"] },
+  { key: "progress", words: ["my progress", "progress", "how am i doing", "how am i performing", "am i improving"] },
+  { key: "weaknesses", words: ["weakness", "weak area", "weakest", "struggling", "underperforming", "what am i bad at", "falling behind"] },
+  { key: "recommendations", words: ["recommend", "what should i do", "suggestion", "what should i work on"] },
+  { key: "goals", words: ["my goals", "goal", "milestone", "break down"] },
   { key: "streak", words: ["streak"] },
-  { key: "quests", words: ["quest"] },
-  { key: "xp", words: ["xp", "experience"] },
   { key: "level", words: ["level", "rank"] },
+  { key: "xp", words: ["xp", "experience"] },
+  { key: "quests", words: ["quest"] },
 ];
 
 export function detectIntent(message: string): IntentKey | null {
@@ -28,7 +44,7 @@ export function detectIntent(message: string): IntentKey | null {
 
 /** XP required to advance from `level` to `level + 1` (matches calculateLevel). */
 export function xpToNextLevel(level: number): number {
-  return level * level * 100;
+  return Math.max(0, level * level * 100);
 }
 
 export interface IntentStateView {
@@ -45,7 +61,7 @@ export function buildIntentResponse(intent: IntentKey, state: IntentStateView): 
     case "level":
       return `You are level ${state.level} (${state.rank}) with ${state.totalXp} total XP.`;
     case "xp": {
-      const need = Math.max(0, xpToNextLevel(state.level) - state.totalXp);
+      const need = xpToNextLevel(state.level) - state.totalXp;
       return `You have ${state.totalXp} total XP. You need ${need} more XP to reach level ${state.level + 1}.`;
     }
     case "quests":
@@ -63,4 +79,55 @@ export function buildIntentResponse(intent: IntentKey, state: IntentStateView): 
     default:
       return "";
   }
+}
+
+// ── Engine-driven intent responses (deterministic, no Groq) ─────────────────
+
+export function buildProgressResponse(state: IntentStateView, momentum: MomentumResult): string {
+  return `You're level ${state.level} (${state.rank}) with ${state.totalXp} XP. Your momentum score is ${momentum.score}/100 and ${momentum.direction}.`;
+}
+
+export function buildDailyPlanResponse(plan: DailyPlan): string {
+  const focus = plan.focusArea ? ` Focus area: ${plan.focusArea.toLowerCase()}.` : "";
+  const taskList = plan.tasks.map((t) => t.taskText).join("; ");
+  return `${plan.priority}.${focus} Today: ${taskList}.`;
+}
+
+export function buildWeeklyReviewResponse(review: WeeklyReview): string {
+  const rate = review.completionRate === null ? "no tracked completions" : `${review.completionRate}% completion rate`;
+  return `This week you earned ${review.xpEarned} XP and completed ${review.questsCompleted} quest(s) (${rate}). ${review.recommendedFocus}`;
+}
+
+export function buildWeaknessesResponse(weaknesses: WeaknessResult[]): string {
+  if (weaknesses.length === 0) {
+    return "No clear weak areas detected yet — keep training all attributes and a signal will emerge.";
+  }
+  const top = weaknesses[0];
+  return `Your biggest gap is ${top.area.toLowerCase()} (weakness score ${top.score}/100). ${top.recommendedAction}`;
+}
+
+export function buildRecommendationsResponse(recs: Recommendation[]): string {
+  if (recs.length === 0) return "No recommendations available right now.";
+  const top = recs.slice(0, 3).map((r) => r.label).join("; ");
+  return `Top recommendations: ${top}.`;
+}
+
+export function buildGoalsResponse(goals: DecomposedGoal[]): string {
+  const g = goals[0];
+  const next = g.milestones[0];
+  return `Your goal "${g.goal}" breaks into milestones like "${next.title}". This week: ${next.weeklyObjectives[0]}.`;
+}
+
+export function buildMomentumResponse(momentum: MomentumResult): string {
+  return `Your momentum is ${momentum.score}/100 and ${momentum.direction}.`;
+}
+
+export function buildStreakAnalysisResponse(streak: StreakAnalysis): string {
+  const risk =
+    streak.streakRisk === "high"
+      ? " Your streak is at risk today — complete a task to protect it."
+      : streak.streakRisk === "low"
+        ? " Keep it going today."
+        : "";
+  return `Current streak: ${streak.currentStreak} day(s), longest: ${streak.longestStreak} day(s).${risk}`;
 }

@@ -30,10 +30,27 @@ export function getRankName(level: number): string {
   return "Legend";
 }
 
-function emptyAttributes(): Record<Attribute, number> {
+export function emptyAttributes(): Record<Attribute, number> {
   const out = {} as Record<Attribute, number>;
   for (const a of ATTRIBUTES) out[a] = 0;
   return out;
+}
+
+/**
+ * The attribute with the lowest trained value, or null when every attribute is
+ * untrained (all zero) — i.e. no meaningful weakness signal.
+ */
+export function weakestOf(attributes: Record<Attribute, number>): Attribute | null {
+  let weakest: Attribute | null = null;
+  let weakestValue = Number.POSITIVE_INFINITY;
+  for (const a of ATTRIBUTES) {
+    if (attributes[a] < weakestValue) {
+      weakestValue = attributes[a];
+      weakest = a;
+    }
+  }
+  const allZero = ATTRIBUTES.every((a) => attributes[a] === 0);
+  return allZero ? null : weakest;
 }
 
 /**
@@ -61,17 +78,7 @@ export async function buildEngineState(userId: string): Promise<EngineUserState>
   for (const a of attrRows) {
     if (isAttribute(a.attribute)) attributes[a.attribute] = a.currentValue;
   }
-  let weakestAttribute: Attribute | null = null;
-  let weakestValue = Number.POSITIVE_INFINITY;
-  for (const a of ATTRIBUTES) {
-    if (attributes[a] < weakestValue) {
-      weakestValue = attributes[a];
-      weakestAttribute = a;
-    }
-  }
-  // No meaningful signal if every attribute is untrained (all zero).
-  const allZero = ATTRIBUTES.every((a) => attributes[a] === 0);
-  if (allZero) weakestAttribute = null;
+  const weakestAttribute = weakestOf(attributes);
 
   // Archetype focus areas.
   let archetypeFocusAreas: Attribute[] = [];

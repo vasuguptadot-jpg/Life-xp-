@@ -22,8 +22,10 @@ Complete the open items before declaring a fully GREEN release.
 
 ## Open items to close before GREEN (environment-dependent)
 
-- [ ] **Live AI** — verify chat/daily-tasks/life-tip against a real `GROQ_API_KEY`
-      (sandbox has none). Assert a non-empty AI response and no key leakage.
+- [ ] **Live AI (open-ended chat only)** — verify open-ended `POST /api/ai/chat`
+      against a real `GROQ_API_KEY` (sandbox has none). Assert a non-empty AI
+      response and no key leakage. (Stage 16: daily-tasks, life-tip, and all
+      Life Engine endpoints are deterministic and no longer require a key.)
 - [ ] **Live object storage** — authenticated upload, unauthenticated fetch (403/404),
       cross-user fetch (404) against a real Replit sidecar.
 - [ ] **Live production DB** — run the schema audit against the real cluster.

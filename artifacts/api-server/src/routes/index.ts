@@ -6,6 +6,7 @@ import onboardingRouter from "./onboarding";
 import progressionRouter from "./progression";
 import questsRouter from "./quests";
 import aiRouter from "./ai";
+import lifeEngineRouter from "./life-engine";
 import socialRouter from "./social";
 import messagesRouter from "./messages";
 
@@ -18,6 +19,7 @@ router.use("/onboarding", onboardingRouter);
 router.use("/progression", progressionRouter);
 router.use("/quests", questsRouter);
 router.use("/ai", aiRouter);
+router.use("/life-engine", lifeEngineRouter);
 router.use("/social", socialRouter);
 router.use("/messages", messagesRouter);
 

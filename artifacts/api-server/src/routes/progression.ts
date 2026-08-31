@@ -15,9 +15,16 @@ import {
   attributeHistoryTable,
 } from "@workspace/db/schema";
 import { requireAuth } from "../lib/auth";
+import { composeDailyPlan } from "../lib/life-engine";
 
 const router = Router();
 router.use(requireAuth);
+
+// GET /api/progression/daily-plan — deterministic Daily Plan Engine
+// (also available at /api/life-engine/daily-plan)
+router.get("/daily-plan", async (req, res) => {
+  res.json(await composeDailyPlan(req.user!.sub));
+});
 
 // GET /api/progression/summary
 router.get("/summary", async (req, res) => {
