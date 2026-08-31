@@ -1,101 +1,73 @@
 # Stage 11 — Release Gate
 
-**Baseline:** `c0ea8f3` (Stage 10 final) · **Final HEAD:** `8abc66b` · **Branch:** `arena/01a05271-life-xp` · **Date:** 2026-08-31
+**Exact HEAD:** `7bd745621277ed61cf2078accf845ea1030ee8af` · **Branch:** `arena/01a05271-life-xp` · **Date:** 2026-08-31
 
-## Gate Logic (applied exactly)
+## GO/NO-GO Rule (applied exactly)
 
-- **GO** = all critical production infrastructure verified + no critical/high
-  defects.
-- **CONDITIONAL GO** = application clean, no critical/high defects remain, but
-  legitimate external infrastructure validations remain blocked.
-- **NO-GO** = any reproducible critical/high defect exists.
+- **GREEN — GO** only if: no production blockers; real DB verified; real AI
+  verified (or AI is explicitly not a required production feature); real object
+  storage verified; backend E2E verified; browser E2E verified or formally
+  waived; security has no blocking findings; migrations verified; build/typecheck/
+  tests pass.
+- **YELLOW — CONDITIONAL GO** if: application code has no known production
+  blocker; remaining blockers are purely infrastructure/configuration; blockers
+  are explicitly listed; production deployment should **not** yet be called
+  fully certified.
+- **RED — NO-GO** if: any reproducible production-blocking code defect exists;
+  migration failure; critical/high exploitable security issue; core production
+  journey broken; unsafe data integrity.
 
-## Gate Inputs
+## Final Release Matrix
 
-| Signal | Value |
-|--------|-------|
-| Critical defects | 0 |
-| High defects | 0 (1 HIGH found & fixed this stage — see BUG-11-1) |
-| Medium defects | 0 (1 MEDIUM dependency advisory carried, documented) |
-| Low defects | 0 (4 LOW findings carried/documented) |
-| Real infra validated | DB ✗ · AI ✗ · object storage ✗ · browser ✗ |
+| Surface | Real verification | Result | Evidence | Blocker |
+|---|---|---|---|---|
+| Repository | local (recovered from remote) | PASS | HEAD `7bd7456`, clean, 157 files, synced | — |
+| Build | local | PASS | `pnpm build` api+web+libs, typecheck 0 errors | — |
+| Tests | local | PASS | 40/40 (isolated DB) | — |
+| Real DB | **no** | **BLOCKED** | no `DATABASE_URL`; isolated PGlite is supporting evidence only | INFRA |
+| AI | **no** | **BLOCKED** | no `GROQ_API_KEY`; degradation verified | INFRA |
+| Object storage | **no** | **BLOCKED** | no sidecar | INFRA |
+| Backend E2E | local (production build) | LOCAL PASS | full disposable journey + authz boundaries | — |
+| Browser E2E | **no** | **BLOCKED** | no automation | INFRA |
+| Security | local | PASS | malformed/IDOR/SSE/CORS/JWT/oversized; no 500 on malformed input | — |
+| Concurrency | local | PASS | exact counters, atomic refresh rotation | real-PG INFRA |
+| Dependencies | local | PASS (no CRITICAL/HIGH prod) | 1 MODERATE prod (uuid); dev/tooling advisories | — |
+| Observability | local | PASS | no secrets in logs, safe client errors | — |
+| Performance | local | PASS | pagination caps, no leaks | — |
 
-## Final Classification Block
+## Classification
 
-| Area | Result |
-|------|--------|
-| REAL DATABASE | **BLOCKED** (no `DATABASE_URL`) |
-| REAL AI | **BLOCKED** (no `GROQ_API_KEY`; degradation verified) |
-| REAL OBJECT STORAGE | **BLOCKED** (no sidecar) |
-| REAL BACKEND | **PASS** (LOCAL — production build) |
-| REAL FRONTEND | **PASS** (LOCAL — static build; browser BLOCKED) |
-| BROWSER E2E | **BLOCKED** |
-| SECURITY | **PASS** (LOCAL) |
-| CONCURRENCY | **PASS** (LOCAL; real-PG BLOCKED) |
-| MIGRATIONS | **PASS** (LOCAL; multi-instance race UNVERIFIED) |
-| OBSERVABILITY | **PASS** (LOCAL) |
+**YELLOW — CONDITIONAL GO.**
 
-## Automated Evidence
+Application code has no known production blocker. The remaining blockers are
+purely infrastructure/configuration:
 
-| Gate | Result |
-|------|--------|
-| AUTOMATED TESTS | **40 / 40 PASS** (38 Stage 10 + 2 refresh-rotation) |
-| TYPECHECK | PASS (all packages) |
-| BUILD (api + web + libs) | PASS |
-| SCHEMA CONTRACT | PASS (23 tables / 154 columns, exact) |
-| CLEAN CHECKOUT | PASS (pnpm 10.34.5 pinned, frozen lockfile, no workspace mutation) |
+1. Real PostgreSQL `DATABASE_URL` — not provisioned.
+2. Real `GROQ_API_KEY` — not available.
+3. Object-storage sidecar — not available.
+4. Browser automation (Playwright/Chromium) — not available.
 
-## Findings (this stage)
+No reproducible production-blocking code defect, migration failure,
+critical/high exploitable security issue, broken core journey, or unsafe data
+integrity was found.
 
-- **BUG-11-1 (HIGH) — FIXED:** non-atomic refresh-token rotation allowed
-  concurrent replay. `routes/auth.ts` `POST /auth/refresh`. Fixed with atomic
-  `UPDATE … WHERE revoked_at IS NULL … RETURNING`. Regression
-  `refresh-rotation.test.ts`. Commit `60b956a`.
-- **LOW:** server-side stack traces for CORS-rejection and malformed-JSON (log
-  noise only, no client disclosure).
-- **LOW:** multi-instance migration race (drizzle-kit `migrate` lacks an
-  advisory lock).
-- **Carried (Stage 10):** MEDIUM transitive `uuid` advisory; LOW — quests
-  `recommended` uncapped limit, HTML 404 for unknown route, 605 KB bundle,
-  dev/tooling advisories.
+## WHAT PREVENTS GREEN GO
 
-## FINAL RELEASE DECISION
+The four infrastructure surfaces above cannot be exercised here, and none may
+be honestly converted to PASS from PGlite/mocks/static inspection.
 
-**CONDITIONAL GO**
+## EXACTLY WHAT IS REQUIRED TO REACH GREEN GO
 
-## WHAT PREVENTS GO
+1. **Real DB:** provision `DATABASE_URL`; read-only schema comparison (vs Drizzle
+   + migrations + `DATABASE_CONTRACT.json`) + disposable-record CRUD/SSE smoke
+   with cleanup.
+2. **Real AI:** supply `GROQ_API_KEY`; live chat/goals/daily-tasks/life-tip,
+   persistence, malformed input, provider failure/timeout, key non-leakage.
+3. **Object storage:** provide the sidecar; upload/retrieval/ACL/traversal/
+   isolation/cleanup/credential tests.
+4. **Browser E2E:** enable Playwright/Chromium; full journey across mobile +
+   desktop viewports with console/network capture.
 
-Four external production surfaces cannot be exercised in this environment, and
-none can be validated from static inspection without fabricating a PASS:
+## FINAL DECISION
 
-1. **Real PostgreSQL** — no `DATABASE_URL` is provisioned in the sandbox; the
-   schema/CRUD evidence is from an isolated PGlite reproduction only.
-2. **Real Groq AI** — no `GROQ_API_KEY`; live generation, provider-failure, and
-   timeout behavior are unverified.
-3. **Real object storage** — no object-storage sidecar; upload, ACL, retrieval,
-   and traversal resistance are unverified at runtime.
-4. **Browser E2E** — no Playwright/Chromium; the full real-user journey
-   (register → login → onboarding → quests → social → messaging → SSE →
-   logout) has not been executed in a browser.
-
-No application-code or deployment-configuration critical/high defect remains.
-
-## EXACTLY WHAT IS REQUIRED TO REACH GO
-
-1. Provision a **real (production or staging) `DATABASE_URL`** and re-run the
-   read-only schema comparison plus the disposable-record CRUD smoke against
-   it using the application's own `pg`/Drizzle stack.
-2. Supply a **real `GROQ_API_KEY`** and exercise AI chat, goals, daily tasks,
-   life tip, persistence, malformed input, provider failure, and timeout
-   behavior, confirming the key never leaks into responses, logs, errors, DB,
-   or the frontend bundle.
-3. Provide the **object-storage sidecar** and test upload, valid/invalid MIME,
-   oversized/malformed files, authorized/unauthorized retrieval, nonexistent
-   and traversal-like object names, isolation, ACL, and cleanup.
-4. Enable **browser automation (Playwright/Chromium)** and run the complete E2E
-   user journey (register → login → onboarding → dashboard → quests → XP →
-   profile → feed → post/like/follow → messages → SSE → logout → login) with
-   console/network capture.
-
-With any of the above still unavailable, the honest classification remains
-**CONDITIONAL GO**.
+**YELLOW — CONDITIONAL GO**
