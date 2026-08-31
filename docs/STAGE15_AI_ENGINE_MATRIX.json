@@ -1,0 +1,158 @@
+{
+  "stage": 15,
+  "title": "AI-Dependency Architectural Analysis (Life Engine)",
+  "analysis_only": true,
+  "code_changes": 0,
+  "database_changes": 0,
+  "current_ai_dependency_count": 3,
+  "current_ai_features": [
+    {
+      "endpoint": "GET /api/ai/daily-tasks",
+      "invokes_groq": true,
+      "input": "userId -> level, totalXp, attributes, goals",
+      "output": "5 tasks [{taskText, category, xpReward}]",
+      "category": "A_ENGINE_REPLACEABLE",
+      "engine_replacement": "Daily Mission Engine (template library + weighted scoring + difficulty clamp)",
+      "ai_still_useful": "optional wording only",
+      "recommended_architecture": "ENGINE_OWNED"
+    },
+    {
+      "endpoint": "GET /api/ai/life-tip",
+      "invokes_groq": true,
+      "input": "userId -> level, attributes, goals",
+      "output": "{tip, category, date}",
+      "category": "A_ENGINE_REPLACEABLE",
+      "engine_replacement": "Rule-matched curated tip library (weakest attribute / goal / streak state + novelty rotation)",
+      "ai_still_useful": "optional enrichment",
+      "recommended_architecture": "ENGINE_OWNED"
+    },
+    {
+      "endpoint": "POST /api/ai/chat",
+      "invokes_groq": true,
+      "input": "userId, {message} + context + 12-msg history",
+      "output": "{message, id}",
+      "category": "C_AI_NATIVE",
+      "engine_replacement": "Deterministic intent/FAQ layer for common questions (partial); open-ended coaching remains LLM",
+      "ai_still_useful": "yes - core conversational",
+      "recommended_architecture": "HYBRID"
+    },
+    {
+      "endpoint": "GET/POST /api/ai/goals",
+      "invokes_groq": false,
+      "note": "pure DB read/write, mislabeled as ai",
+      "category": "NOT_AI"
+    },
+    {
+      "endpoint": "POST /api/ai/daily-tasks/:id/complete",
+      "invokes_groq": false,
+      "note": "already deterministic via awardXp()",
+      "category": "NOT_AI"
+    },
+    {
+      "endpoint": "GET /api/ai/chat/history",
+      "invokes_groq": false,
+      "note": "pure DB read",
+      "category": "NOT_AI"
+    }
+  ],
+  "classification_counts": {
+    "engine_replaceable": 2,
+    "engine_plus_optional_ai": 1,
+    "ai_native": 1,
+    "not_ai_mislabeled": 3
+  },
+  "existing_deterministic_engines": [
+    { "name": "XP Engine", "location": "lib/progression.ts awardXp()", "authoritative": true },
+    { "name": "Level Engine", "location": "lib/progression.ts calculateLevel() (sqrt curve)", "authoritative": true },
+    { "name": "Recommendation Engine", "location": "routes/social.ts /posts/personalized (recency*0.5 + likes*0.2 + goal*0.4)", "authoritative": true },
+    { "name": "Leaderboard Engine", "location": "routes/social.ts /leaderboard", "authoritative": true },
+    { "name": "Profile/Archetype Engine", "location": "scripts/src/seed-archetypes.ts + user_characters", "authoritative": true },
+    { "name": "Progression read engine", "location": "routes/progression.ts /summary + /attribute-history", "authoritative": true }
+  ],
+  "proposed_engines": [
+    { "name": "Quest Engine", "exists": "partial", "data": "quest_templates + user_quests", "rules": "weighted candidate score", "offline": true, "no_groq": true },
+    { "name": "Streak Engine", "exists": false, "data": "xp_transactions.createdAt", "rules": "consecutive-day detection", "offline": true, "no_groq": true },
+    { "name": "Habit Engine", "exists": false, "data": "ai_daily_tasks (category, isCompleted)", "rules": "per-category completion rate", "offline": true, "no_groq": true },
+    { "name": "Goal Engine", "exists": "storage_only", "data": "user_goals", "rules": "goal->attribute map + milestone decomposition", "offline": true, "no_groq": true },
+    { "name": "Daily Mission Engine", "exists": "llm_driven", "data": "goals+attributes+activity", "rules": "template library + scoring", "offline": true, "no_groq": true },
+    { "name": "Achievement Engine", "exists": false, "data": "xp_transactions + user_quests", "rules": "threshold rules", "offline": true, "no_groq": true },
+    { "name": "Challenge Engine", "exists": false, "data": "quest templates + attributes", "rules": "challenge construction", "offline": true, "no_groq": true },
+    { "name": "User State Engine", "exists": "fragmented", "data": "onboarding+levels+attributes+quests+goals", "rules": "aggregate snapshot", "offline": true, "no_groq": true },
+    { "name": "Health-Score Engine", "exists": false, "data": "user_profiles + attributes", "rules": "BMI/activity/consistency composite", "offline": true, "no_groq": true },
+    { "name": "Behavior-Score Engine", "exists": false, "data": "timestamps across tables", "rules": "consistency + anomaly detection", "offline": true, "no_groq": true },
+    { "name": "Recovery Engine", "exists": false, "data": "activity gaps + RECOVERY attr", "rules": "inactivity window + overtraining heuristics", "offline": true, "no_groq": true },
+    { "name": "Difficulty Engine", "exists": "static", "data": "quest completion rate + level", "rules": "adaptive difficulty curve", "offline": true, "no_groq": true },
+    { "name": "Adaptive Quest Engine", "exists": false, "data": "difficulty + quest engines", "rules": "adjust target/XP by performance", "offline": true, "no_groq": true },
+    { "name": "Notification Decision Engine", "exists": false, "data": "streak/recovery/momentum signals", "rules": "priority queue", "offline": false, "no_groq": true, "note": "needs push infra" },
+    { "name": "Reward Engine", "exists": "implicit", "data": "progressionConfig", "rules": "deterministic XP/attribute allocation", "offline": true, "no_groq": true },
+    { "name": "Personalization Engine", "exists": "naive", "data": "attributes + archetype focusAreas + activityLevel", "rules": "weakness/top-attribute ranking", "offline": true, "no_groq": true }
+  ],
+  "new_engine_features": [
+    "Adaptive quests", "Dynamic daily plan", "Weakness detection", "Momentum score",
+    "Recovery mode", "Streak protection", "Goal decomposition", "Smart quest rotation",
+    "Behavior pattern detection", "Personal difficulty curve", "Reward optimization",
+    "Weekly review engine", "Personalized dashboard", "Comeback system",
+    "Milestone forecasting", "Consistency score"
+  ],
+  "new_features_count": 16,
+  "new_features_all_implementable_now": true,
+  "techniques": [
+    "weighted scoring / multi-factor ranking",
+    "rule engine (template library + matcher)",
+    "finite-state machines (quest/onboarding lifecycle)",
+    "event-driven engine (hook awardXp chokepoint)",
+    "priority queue (notification decisions)",
+    "feature vectors (7-attribute user state)",
+    "adaptive difficulty (Elo/EMA of success ratio)",
+    "moving averages / trend detection",
+    "anomaly detection (z-score vs own baseline)",
+    "bayesian streak-break probability",
+    "behavior classification (time-of-day clustering)"
+  ],
+  "offline_matrix": [
+    { "feature": "Dashboard", "offline": "fully", "server": "sync", "ai": false },
+    { "feature": "XP", "offline": "fully", "server": "authoritative", "ai": false },
+    { "feature": "Levels", "offline": "fully", "server": true, "ai": false },
+    { "feature": "Quests", "offline": "fully", "server": true, "ai": false },
+    { "feature": "Daily missions", "offline": "fully", "server": true, "ai": "optional" },
+    { "feature": "Streaks", "offline": "fully", "server": true, "ai": false },
+    { "feature": "Achievements", "offline": "fully", "server": true, "ai": false },
+    { "feature": "Goals", "offline": "fully", "server": true, "ai": false },
+    { "feature": "Progress", "offline": "fully", "server": true, "ai": false },
+    { "feature": "Leaderboard", "offline": "partial", "server": true, "ai": false },
+    { "feature": "Recommendations", "offline": "fully", "server": "social", "ai": false },
+    { "feature": "Notifications", "offline": "partial", "server": "push", "ai": false },
+    { "feature": "Personalization", "offline": "fully", "server": true, "ai": false },
+    { "feature": "Profile", "offline": "fully", "server": true, "ai": false },
+    { "feature": "Archetypes", "offline": "fully", "server": true, "ai": false },
+    { "feature": "Health tracking", "offline": "fully", "server": true, "ai": false },
+    { "feature": "Statistics", "offline": "fully", "server": true, "ai": false },
+    { "feature": "AI coach chat", "offline": "none", "server": true, "ai": true }
+  ],
+  "offline_capability_percent": 95,
+  "architectural_impact": {
+    "new_tables": "none required (optional: streak/achievement/notification for authoritative persistence)",
+    "new_columns": "none (optional: users.last_seen_activity_at for cheap inactivity queries)",
+    "new_endpoints": "engine read endpoints (/engine/daily-plan, /engine/insights, /engine/weekly-review, /engine/streaks)",
+    "background_workers": "none (lazy compute on request; optional cron for streak rollover)",
+    "event_system": "attach hooks to awardXp() (optional)",
+    "new_frontend_screens": "Insights, Achievements, Weekly Review (optional)",
+    "new_services": "lib/engine/* (scoring, streak, difficulty, missions)",
+    "caching": "reuse ai_daily_tasks/ai_daily_tips as engine cache",
+    "indexes": "optional xp_transactions(user_id, created_at)"
+  },
+  "cost_reliability": {
+    "current": { "latency": "1-3s LLM", "cost": "per-token", "reliability": "external provider", "offline": false, "determinism": "low", "testability": "hard", "privacy": "sends context to 3rd party" },
+    "engine": { "latency": "<5ms", "cost": "$0", "reliability": "always available", "offline": true, "determinism": "high", "testability": "trivial", "privacy": "local" },
+    "hybrid": { "latency": "engine + optional LLM", "cost": "optional per-token", "reliability": "engine always, AI best-effort", "offline": "core yes", "determinism": "high core", "testability": "core trivial", "privacy": "local unless AI requested" }
+  },
+  "final_recommendation": {
+    "engine_owned": ["daily-task generation", "life-tip generation"],
+    "hybrid": ["AI coach chat (deterministic intents + AI for open-ended)", "optional AI wording on tasks/tips"],
+    "remain_ai": ["open-ended coaching conversation"],
+    "new_engine_features": ["adaptive quests", "dynamic daily plan", "weakness detection", "momentum/consistency score", "recovery mode", "streak protection", "goal decomposition", "smart quest rotation", "weekly review", "milestone forecasting", "comeback system", "behavior-pattern detection"],
+    "fully_offline": ["everything except AI chat and cross-user social sync"],
+    "still_requires_external": ["AI chat (LLM)", "server for cross-user features (leaderboard/messaging)"]
+  },
+  "final_decision": "ANALYSIS_ONLY - no code or schema changes made. Recommendation: move daily tasks and life tips to a deterministic Life Engine, keep coach chat AI-native with a deterministic intent layer, and build 16 new deterministic engine features from existing data."
+}
