@@ -1,0 +1,118 @@
+{
+  "stage": 14,
+  "timestamp": "2026-08-31T20:32:00Z",
+  "commit": "ad8069a36c59ccd5083f7e572d91d617ae3d52c5",
+  "branch": "arena/01a05271-life-xp",
+  "git": {
+    "head": "ad8069a36c59ccd5083f7e572d91d617ae3d52c5",
+    "remote_head": "ad8069a36c59ccd5083f7e572d91d617ae3d52c5",
+    "synchronized": true,
+    "working_tree_clean": true,
+    "tracked_files": 160,
+    "untracked_files": 0,
+    "baseline_recovery": "No reset occurred. HEAD == remote == ad8069a, clean tree confirmed before testing.",
+    "node": "v22.22.3",
+    "pnpm": "10.34.5"
+  },
+  "database": {
+    "result": "PASS",
+    "real": true,
+    "engine": "PostgreSQL 18.4 (real binaries, not PGlite)",
+    "driver": "pg 8.22.0 (real PostgreSQL wire protocol)",
+    "endpoint": "127.0.0.1:5434 database=lifexp",
+    "migrations": "0000_tired_excalibur + 0001_puzzling_the_santerians applied (idempotent)",
+    "seed": "7 archetypes (idempotent)",
+    "automated_tests_against_real_pg": "40/40 PASS (7 files, 7.91s)"
+  },
+  "ai": {
+    "result": "BLOCKED — REAL PROVIDER CREDENTIAL UNAVAILABLE",
+    "missing_infrastructure": "A real, valid GROQ_API_KEY (a Groq Cloud account credential)",
+    "reason": "GROQ_API_KEY is not present in the environment; .env.example contains only an empty placeholder (value length 0). A Groq API key is an account credential and cannot be provisioned from any package source reachable in the sandbox. No key can be fabricated or mocked without producing a false PASS.",
+    "no_key_degradation_verified": {
+      "ai_chat": "503 (graceful) — body: 'AI coach is not configured. Add GROQ_API_KEY to enable.'",
+      "ai_daily_tasks": "200 (safe fallback)",
+      "ai_life_tip": "200 (safe fallback)",
+      "ai_chat_history": "200",
+      "server_healthy": "true (healthz 200, /api/auth/me 200 after AI calls)"
+    },
+    "live_generation": "UNVERIFIED",
+    "closing_requirement": "Set a real GROQ_API_KEY in the production environment; restart the API; assert POST /api/ai/chat returns 200 with a genuine provider response (schema + latency), verify daily-tasks/life-tip live generation, provider-failure/timeout handling, recovery of non-AI endpoints, and key non-leakage in source/logs/artifacts/history."
+  },
+  "object_storage": {
+    "result": "BLOCKED — INFRASTRUCTURE UNAVAILABLE",
+    "missing_infrastructure": "Replit object-storage sidecar at 127.0.0.1:1106 (external-account /credential and /token endpoints) backed by Google Cloud Storage",
+    "reason": "objectStorage.ts builds @google-cloud/storage against credential_source.url=http://127.0.0.1:1106/credential and token_url=http://127.0.0.1:1106/token. Connection to 127.0.0.1:1106 is refused (no sidecar), and no GCS/object-storage credentials exist in the environment. The sidecar is Replit-host-specific infrastructure that cannot be provisioned from npm or any reachable package source. No mock GCS server, filesystem substitute, or static route inspection may be counted as a storage PASS.",
+    "closing_requirement": "Run the Replit object-storage sidecar on 127.0.0.1:1106 with a GCS project, then exercise upload (physical existence + metadata), owner download (content match), cross-user private-access denial, owner/second-user/nonexistent delete authorization, object-name/traversal/encoded/absolute/separator input security, signed-URL validity/expiry/tamper/unauthorized-generation, and storage-outage failure mode (safe status, no credential/stack leak, app alive)."
+  },
+  "browser_e2e": {
+    "result": "PASS",
+    "engine": "Chromium 149.0.7827.0 (real binary, @sparticuz/chromium + bundled AL2023 NSS libs)",
+    "driver": "puppeteer-core 25.9.0",
+    "viewports": ["mobile 390x844", "desktop 1440x900"],
+    "journey": "signup → onboarding(5 steps) → dashboard → social(post/like) → messaging/SSE → leaderboard → session persistence → logout → invalid-credentials → signin (all PASS, both viewports)"
+  },
+  "security": {
+    "result": "PASS (real PostgreSQL)",
+    "details": {
+      "cross_user_delete": 404,
+      "malformed_json": 400,
+      "oversized_payload_200kb": 413,
+      "sql_injection": "safe (parameterized, no 500)",
+      "invalid_uuid_target": "safe 4xx",
+      "sse_membership": "member 200 / non-member 403 / garbage 401",
+      "secret_leakage": "none (source, logs, artifacts, git diff/history scanned)",
+      "stack_trace_leakage": "none to clients"
+    }
+  },
+  "concurrency": {
+    "result": "PASS (real PostgreSQL)",
+    "details": {
+      "concurrent_like_6x": "likes_count = 1 (idempotent)",
+      "concurrent_unlike_3x": "likes_count = 0",
+      "refresh_rotation": "atomic (refresh-rotation.test.ts in 40/40 suite)",
+      "race_induced_500": "none"
+    }
+  },
+  "observability": {
+    "result": "PASS (real PostgreSQL)",
+    "no_secrets_in_logs": true,
+    "no_jwt_in_logs": true,
+    "no_authorization_headers_in_logs": true,
+    "sse_token_query_parameter_not_logged": true,
+    "no_stack_in_client_responses": true,
+    "low_findings": [
+      "server-side stack traces for CORS/JSON rejection (logs only)",
+      "no SIGTERM drain handler",
+      "in-memory rate limiter resets on restart"
+    ]
+  },
+  "automated_tests": {
+    "result": "PASS",
+    "count": "40/40",
+    "files": 7,
+    "database": "real PostgreSQL 18.4",
+    "duration": "7.91s"
+  },
+  "build": {
+    "result": "PASS",
+    "typecheck": "PASS (0 errors, all packages)",
+    "api_build": "PASS (esbuild production bundle)",
+    "web_build": "PASS (vite production build)"
+  },
+  "blockers": [
+    "AI: real GROQ_API_KEY unavailable (degradation verified; live generation UNVERIFIED)",
+    "Object storage: Replit sidecar 127.0.0.1:1106 + GCS unavailable (connection refused)"
+  ],
+  "high_risks": [],
+  "medium_risks": [
+    "Production-runtime dependency uuid <11.1.1 (via @google-cloud/storage -> gaxios; MODERATE, low exploitability) — no blind upgrade",
+    "Real-DB validation ran against embedded-postgres (genuine PostgreSQL 18.4) rather than a managed service; production still needs a managed/persistent instance with backups and monitoring"
+  ],
+  "low_risks": [
+    "No SIGTERM drain handler",
+    "quests/recommended list uncapped (small public catalogue)",
+    "In-memory rate limiter resets on restart",
+    "Server-side stack traces for CORS/JSON rejection (logs only)"
+  ],
+  "final_decision": "YELLOW (CONDITIONAL GO)"
+}
