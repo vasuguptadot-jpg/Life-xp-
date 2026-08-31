@@ -1,0 +1,125 @@
+{
+  "stage": 16,
+  "title": "Life Engine Foundation",
+  "implemented": true,
+  "scope": "First five scoped components only",
+  "architecture": "Life Engine AUTHORITATIVE, AI NON-AUTHORITATIVE (wording/conversation only)",
+  "new_files": [
+    "artifacts/api-server/src/lib/life-engine/types.ts",
+    "artifacts/api-server/src/lib/life-engine/templates.ts",
+    "artifacts/api-server/src/lib/life-engine/scoring.ts",
+    "artifacts/api-server/src/lib/life-engine/state.ts",
+    "artifacts/api-server/src/lib/life-engine/daily-task-engine.ts",
+    "artifacts/api-server/src/lib/life-engine/life-tip-engine.ts",
+    "artifacts/api-server/src/lib/life-engine/intents.ts",
+    "artifacts/api-server/src/lib/life-engine/index.ts",
+    "artifacts/api-server/src/tests/life-engine.test.ts"
+  ],
+  "modified_files": [
+    "artifacts/api-server/src/routes/ai.ts"
+  ],
+  "engines": {
+    "daily_task_engine": {
+      "status": "PASS",
+      "endpoint": "GET /api/ai/daily-tasks",
+      "deterministic": true,
+      "template_count": 28,
+      "categories": 7,
+      "task_count_per_day": 5,
+      "xp_bounds": [10, 50],
+      "weights": {
+        "goalRelevance": 0.25,
+        "difficultyFit": 0.2,
+        "weakness": 0.2,
+        "freshness": 0.15,
+        "streak": 0.1,
+        "archetype": 0.1
+      },
+      "no_fabricated_data": true
+    },
+    "life_tip_engine": {
+      "status": "PASS",
+      "endpoint": "GET /api/ai/life-tip",
+      "deterministic": true,
+      "rules": ["inactivity", "streak_protection", "consistency", "progression", "weakness", "general"],
+      "rotation": "pickByHash(userId, date)"
+    },
+    "ai_optional_enhancement": {
+      "status": "PASS",
+      "role": "NON_AUTHORITATIVE wording only",
+      "fallback": "deterministic result on missing key / failure / timeout"
+    },
+    "chat": {
+      "status": "PASS",
+      "preserved_ai_native": true,
+      "deterministic_intents": ["level", "xp", "quests", "streak", "completed_today"],
+      "groq_kept": true
+    },
+    "authoritative_state": {
+      "status": "PASS",
+      "xp_award_path": "awardXp() with idempotencyKey daily_task_<id>",
+      "idempotent": true,
+      "ownership_enforced": true,
+      "generation_read_only_wrt_progression": true
+    }
+  },
+  "schema_changes": "NO",
+  "schema_tables_reused": [
+    "ai_daily_tasks",
+    "ai_daily_tips",
+    "ai_user_goals",
+    "user_goals",
+    "user_levels",
+    "user_attributes",
+    "attribute_history",
+    "xp_transactions",
+    "user_characters",
+    "archetypes",
+    "user_quests"
+  ],
+  "tests": {
+    "total": 71,
+    "passed": 71,
+    "failed": 0,
+    "new_life_engine_tests": 31,
+    "baseline_tests": 40
+  },
+  "performance": {
+    "rankCandidates_28_templates_ms": 0.0076,
+    "selectTasks_5_ms": 0.0071,
+    "buildEngineState_db_ms": 3.5,
+    "daily_tasks_endpoint_cached_ms_range": [2, 9],
+    "life_tip_endpoint_cached_ms_range": [1.5, 2],
+    "chat_deterministic_intent_ms_range": [8, 25]
+  },
+  "security": {
+    "idor": "PASS",
+    "invalid_uuid": "PASS",
+    "invalid_token": "PASS",
+    "sqli": "PASS",
+    "oversized_input": "PASS",
+    "secret_leakage": "PASS",
+    "malformed_json": "PASS"
+  },
+  "verification": {
+    "typecheck": "PASS",
+    "tests": "PASS",
+    "build": "PASS",
+    "api_smoke": "PASS",
+    "sse_smoke": "PASS",
+    "browser_smoke": "PASS"
+  },
+  "final_report": {
+    "DAILY TASK ENGINE": "PASS",
+    "LIFE TIP ENGINE": "PASS",
+    "AI OPTIONAL": "PASS",
+    "CHAT PRESERVED": "PASS",
+    "AUTHORITATIVE STATE PROTECTED": "PASS",
+    "SCHEMA CHANGES": "NO",
+    "TESTS": "71/71",
+    "TYPECHECK": "PASS",
+    "BUILD": "PASS",
+    "SECURITY": "PASS",
+    "REGRESSIONS": 0
+  }
+}
