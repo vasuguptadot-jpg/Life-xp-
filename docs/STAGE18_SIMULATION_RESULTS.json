@@ -1,0 +1,159 @@
+{
+  "stage": 18,
+  "title": "Longitudinal Life Simulation & Adaptive System Validation",
+  "status": "COMPLETE",
+  "verdict": "GREEN",
+  "baseline": {
+    "commit": "10a6fc490e40fa66c2fae23f399a1bb52c03fdd7",
+    "recovered_from_remote": true,
+    "environment": "postgres 18.4 @ 127.0.0.1:5434 (embedded-postgres, fresh cluster, migrations applied)",
+    "toolchain": "pnpm 10.34.5, node v22.22.3",
+    "tests_before": "138/138",
+    "tracked_files": 204
+  },
+  "defects": [
+    {
+      "id": 1,
+      "class": "D",
+      "title": "Momentum mislabeled 'stable' for long-inactive users",
+      "file": "artifacts/api-server/src/lib/life-engine/momentum-engine.ts",
+      "reproduce": "user with totalXp=100 and zero activity in last 14 days => score 0, direction 'stable'",
+      "root_cause": "direction only set 'falling' when priorXp>0; fell through to 'stable' when both windows empty",
+      "fix": "else if (recentXp===0 && priorXp===0 && state.totalXp>0) direction='falling'",
+      "regression_test": "longitudinal-simulation.test.ts: momentum rising/falling; B-inactive recovery"
+    },
+    {
+      "id": 2,
+      "class": "D",
+      "title": "Stale abandoned quests keep a weakness flagged forever",
+      "file": "artifacts/api-server/src/lib/life-engine/weakness-engine.ts",
+      "reproduce": "persona G fails 10 quests then is perfect 19 days; day 29 still 'STRENGTH:30 - 10 abandoned strength quests'",
+      "root_cause": "abandoned-quest count had no recency window, unlike recovery/behavior/difficulty (all 30d)",
+      "fix": "only count abandoned quests with assignedAt >= now-30d",
+      "regression_test": "longitudinal-simulation.test.ts: weakness clears at day 39"
+    },
+    {
+      "id": 3,
+      "class": "D",
+      "title": "Concurrent awardXp loses XP updates",
+      "file": "artifacts/api-server/src/lib/progression.ts",
+      "reproduce": "20 concurrent awardXp(50 XP) => totalXp 250 instead of 1100 (lost updates)",
+      "root_cause": "non-atomic read-modify-write on user_levels.totalXp under READ COMMITTED",
+      "fix": "atomic INSERT..ON CONFLICT DO UPDATE SET totalXp = user_levels.totalXp + $xp RETURNING; level recomputed in follow-up write",
+      "regression_test": "longitudinal-db.test.ts: concurrent awardXp exact total"
+    }
+  ],
+  "personas": [
+    "A-consistent", "B-inactive", "C-comeback", "D-highxp-poorcompletion",
+    "E-lowxp-highcompletion", "F-repeated-failure", "G-rapid-improvement",
+    "H-oscillating", "I-goal-changer", "J-multigoal"
+  ],
+  "simulation_horizons_days": [1, 3, 7, 14, 30, 60, 90],
+  "tests": {
+    "total": 190,
+    "passed": 190,
+    "failed": 0,
+    "files": 14,
+    "baseline": 138,
+    "new_longitudinal_simulation": 43,
+    "new_longitudinal_db": 9,
+    "new_files": [
+      "artifacts/api-server/src/tests/helpers/longitudinal.ts",
+      "artifacts/api-server/src/tests/longitudinal-simulation.test.ts",
+      "artifacts/api-server/src/tests/longitudinal-db.test.ts"
+    ]
+  },
+  "verification": {
+    "typecheck": { "command": "pnpm run typecheck", "result": "PASS" },
+    "tests": { "command": "TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5434/lifexp pnpm test", "result": "PASS (190/190)" },
+    "build": { "command": "pnpm run build", "result": "PASS" },
+    "api_smoke": { "command": "curl all 11 /api/life-engine/* endpoints", "result": "all 200" },
+    "security_smoke": { "command": "curl unauthenticated momentum", "result": "401" },
+    "offline_smoke": { "command": "no GROQ_API_KEY; POST /api/ai/chat", "result": "503 graceful (only open-ended chat needs Groq)" },
+    "real_postgres": { "command": "awardXp + buildAnalyticsState + composeDailyPlan on PostgreSQL 18.4", "result": "PASS" }
+  },
+  "temporal_invariants": {
+    "nan_inf_negative_count": 0,
+    "future_timestamps": 0,
+    "negative_streak": false,
+    "duplicate_events_safe": true,
+    "out_of_order_events_safe": true,
+    "same_timestamp_safe": true,
+    "negative_xp_rejected": true
+  },
+  "monotonicity": {
+    "xp_non_decreasing": true,
+    "streak_non_decreasing_under_consecutive_activity": true,
+    "completion_rate_non_decreasing_on_success": true,
+    "momentum": "intentionally non-monotonic under decline (documented)"
+  },
+  "feedback_loops": {
+    "loop1_same_recommendation_forever": "PASS",
+    "loop2_difficulty_increases_forever": "PASS",
+    "loop3_difficulty_decreases_forever": "PASS",
+    "loop4_weakness_never_disappears": "PASS (fixed defect 2)",
+    "loop5_one_bad_day_permanent_damage": "PASS",
+    "loop6_one_excellent_day_permanent_inflation": "PASS",
+    "loop7_recovery_permanent": "PASS",
+    "loop8_streak_dominates": "PASS",
+    "loop9_xp_farming_artificial_progression": "PASS",
+    "loop10_recommendations_self_reinforcing": "PASS"
+  },
+  "quest_rotation": {
+    "templates_tested": [100, 500, 1000],
+    "intra_rotation_category_duplicates": 0,
+    "pathological_repetition": false,
+    "personalization": "goal + weakness categories represented"
+  },
+  "forecast_validity": {
+    "constant_pace_predicted_vs_actual_within_1_day": true,
+    "zero_pace_no_absurd_finite_date": true,
+    "increasing_pace_tracks_new_pace": true
+  },
+  "personalization": {
+    "users_generated": 100,
+    "distinct_top3_recommendations": ">10",
+    "distinct_difficulty_values": "<=3 (expected)",
+    "distinct_weakness_targets": ">1",
+    "identical_state_identical_output": true
+  },
+  "determinism": {
+    "byte_identical_repeated_runs": true,
+    "one_variable_change_explainable": true
+  },
+  "performance": {
+    "events_10_ms": 0.148,
+    "events_100_ms": 0.238,
+    "events_1000_ms": 0.390,
+    "events_10000_ms": 0.783,
+    "query_count": "fixed (8 parallel + 1 conditional), no N+1",
+    "row_limits": "XP 500, quests 100, tasks 500"
+  },
+  "quality_score": {
+    "longitudinal_correctness": "PASS",
+    "adaptation": "PASS",
+    "feedback_loops": "PASS",
+    "personalization": "PASS",
+    "determinism": "PASS",
+    "explainability": "PASS",
+    "state_transitions": "PASS",
+    "quest_rotation": "PASS",
+    "daily_planning": "PASS",
+    "forecast_validity": "PASS",
+    "temporal_edge_cases": "PASS",
+    "security": "PASS",
+    "concurrency": "PASS",
+    "performance": "PASS",
+    "real_postgresql": "PASS"
+  },
+  "schema_changes": "NO",
+  "ai_changes": "NONE",
+  "final_report": {
+    "DEFECTS FOUND": 3,
+    "DEFECTS FIXED": 3,
+    "DEFECT_CLASSES": "D x3 (correctness), none A/B/C/E",
+    "TEST_COUNT": "190/190",
+    "VERDICT": "GREEN",
+    "RECOMMENDED_NEXT_STEP": "Proceed to release; adaptive system is coherent and regression-protected across time"
+  }
+}

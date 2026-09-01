@@ -75,33 +75,37 @@ async function _awardXpCore(tx: DbOrTx, params: AwardXpParams): Promise<AwardXpR
       .returning();
   }
 
-  // 2. Upsert user level
+  // 2. Upsert user level — atomically increment totalXp. A plain
+  //    read-modify-write (SELECT totalXp → compute → UPDATE) loses concurrent
+  //    awards under READ COMMITTED; the SQL increment is race-free, matching
+  //    the attribute upsert below. Level is recomputed from the returned
+  //    totalXp in a follow-up write (worst case it lags one increment under
+  //    extreme concurrency, but XP is never lost).
   let levelRow = null;
   let levelUp = false;
   if (xp > 0) {
-    const [existing] = await tx
-      .select()
-      .from(userLevelsTable)
-      .where(eq(userLevelsTable.userId, userId))
-      .limit(1);
+    [levelRow] = await tx
+      .insert(userLevelsTable)
+      .values({ userId, totalXp: xp, currentLevel: 1 })
+      .onConflictDoUpdate({
+        target: userLevelsTable.userId,
+        set: {
+          totalXp: sql`${userLevelsTable.totalXp} + ${xp}`,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
 
-    const prevLevel = existing?.currentLevel ?? 1;
-    const newTotalXp = (existing?.totalXp ?? 0) + xp;
-    const newLevel = calculateLevel(newTotalXp);
-
-    if (existing) {
+    const prevLevel = levelRow.currentLevel;
+    const newLevel = calculateLevel(levelRow.totalXp);
+    levelUp = newLevel > prevLevel;
+    if (levelUp) {
       [levelRow] = await tx
         .update(userLevelsTable)
-        .set({ totalXp: newTotalXp, currentLevel: newLevel, updatedAt: new Date() })
+        .set({ currentLevel: newLevel, updatedAt: new Date() })
         .where(eq(userLevelsTable.userId, userId))
         .returning();
-    } else {
-      [levelRow] = await tx
-        .insert(userLevelsTable)
-        .values({ userId, totalXp: newTotalXp, currentLevel: newLevel })
-        .returning();
     }
-    levelUp = newLevel > prevLevel;
   }
 
   // 3. Award attribute XP — dedup by (sourceId, attribute) pair

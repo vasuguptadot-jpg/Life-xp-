@@ -57,6 +57,9 @@ export function computeMomentum(state: AnalyticsState): MomentumResult {
   let direction: MomentumResult["direction"] = "stable";
   if (recentXp > priorXp * 1.1) direction = "rising";
   else if (recentXp < priorXp * 0.9 && priorXp > 0) direction = "falling";
+  // A user with a history of activity but nothing in the last 14 days has
+  // declined to zero — report "falling", not the misleading "stable".
+  else if (recentXp === 0 && priorXp === 0 && state.totalXp > 0) direction = "falling";
 
   const factors: MomentumFactor[] = [
     { name: "recent_xp", value: Math.round(recentXpScore), weight: 0.4 },

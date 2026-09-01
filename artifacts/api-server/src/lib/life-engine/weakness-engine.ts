@@ -30,7 +30,10 @@ export function detectWeaknesses(state: AnalyticsState): WeaknessResult[] {
     const cat = q.category as Attribute;
     if (!categoryStats.has(cat)) continue;
     const s = categoryStats.get(cat)!;
-    if (q.status === "ABANDONED") s.abandoned++;
+    // Only recent abandonments signal an *ongoing* weakness. Counting all-time
+    // abandonments keeps an area flagged long after the user recovers (and is
+    // inconsistent with recovery/behavior/difficulty, which all window to 30d).
+    if (q.status === "ABANDONED" && q.assignedAt.getTime() >= since30d) s.abandoned++;
   }
   for (const e of state.xpEvents) {
     if (e.createdAt.getTime() < since30d) continue;
