@@ -66,9 +66,17 @@ async function _awardXpCore(tx: DbOrTx, params: AwardXpParams): Promise<AwardXpR
     attributes = [],
   } = params;
 
-  // 1. Record XP transaction
+  // Sanitize inputs: only positive XP on a known attribute is a valid award.
+  // Negative/zero/unknown attribute deltas would otherwise decrement
+  // user_attributes.currentValue (breaking monotonicity) and pollute history.
+  const safeAttributes = attributes.filter(
+    (a) => isValidAttribute(a.attribute) && a.xp > 0 && Number.isFinite(a.xp),
+  );
+
+  // 1. Record XP transaction (positive finite only; negative/NaN/Infinity are
+  //    ignored rather than awarded — see sanitization note above).
   let transaction = null;
-  if (xp > 0) {
+  if (xp > 0 && Number.isFinite(xp)) {
     [transaction] = await tx
       .insert(xpTransactionsTable)
       .values({ userId, amount: xp, sourceType, sourceId, idempotencyKey, category, description })
@@ -83,7 +91,7 @@ async function _awardXpCore(tx: DbOrTx, params: AwardXpParams): Promise<AwardXpR
   //    extreme concurrency, but XP is never lost).
   let levelRow = null;
   let levelUp = false;
-  if (xp > 0) {
+  if (xp > 0 && Number.isFinite(xp)) {
     [levelRow] = await tx
       .insert(userLevelsTable)
       .values({ userId, totalXp: xp, currentLevel: 1 })
@@ -110,7 +118,7 @@ async function _awardXpCore(tx: DbOrTx, params: AwardXpParams): Promise<AwardXpR
 
   // 3. Award attribute XP — dedup by (sourceId, attribute) pair
   const attributeResults: { attribute: string; newValue: number }[] = [];
-  for (const attr of attributes) {
+  for (const attr of safeAttributes) {
     if (sourceId) {
       const [dup] = await tx
         .select({ id: attributeHistoryTable.id })
@@ -152,6 +160,22 @@ async function _awardXpCore(tx: DbOrTx, params: AwardXpParams): Promise<AwardXpR
 }
 
 /**
+ * True if the error (or its cause chain) is a PostgreSQL unique-constraint
+ * violation with the given constraint name.
+ */
+function isUniqueViolation(err: unknown, constraint: string): boolean {
+  let cur: unknown = err;
+  for (let i = 0; i < 5 && cur; i++) {
+    const e = cur as { code?: string; message?: string; constraint?: string; cause?: unknown };
+    if (e.code === "23505" && (e.constraint === constraint || (e.message ?? "").includes(constraint))) {
+      return true;
+    }
+    cur = e.cause;
+  }
+  return false;
+}
+
+/**
  * Award XP as a standalone operation (creates its own transaction).
  * Performs idempotency check before proceeding.
  */
@@ -170,18 +194,40 @@ export async function awardXp(params: AwardXpParams): Promise<AwardXpResult> {
     }
   }
 
-  return db.transaction(async (tx) => {
-    // Re-check inside transaction to prevent races
-    if (idempotencyKey) {
-      const [existing] = await tx
-        .select()
-        .from(xpTransactionsTable)
-        .where(eq(xpTransactionsTable.idempotencyKey, idempotencyKey))
-        .limit(1);
-      if (existing) {
-        return { transaction: existing, levelRow: null, attributeResults: [], alreadyAwarded: true };
+  try {
+    return await db.transaction(async (tx) => {
+      // Re-check inside transaction to prevent races
+      if (idempotencyKey) {
+        const [existing] = await tx
+          .select()
+          .from(xpTransactionsTable)
+          .where(eq(xpTransactionsTable.idempotencyKey, idempotencyKey))
+          .limit(1);
+        if (existing) {
+          return { transaction: existing, levelRow: null, attributeResults: [], alreadyAwarded: true };
+        }
+      }
+      return _awardXpCore(tx, params);
+    });
+  } catch (err) {
+    // Under high concurrency two transactions can both pass the inner re-check
+    // (READ COMMITTED) and both attempt the INSERT; the unique constraint on
+    // idempotency_key is the final safety net. Treat that race as "already
+    // awarded" rather than surfacing a 500. Best-effort re-query for the
+    // winning transaction (it may not be committed yet); the unique constraint
+    // guarantees the award happened exactly once regardless.
+    if (idempotencyKey && isUniqueViolation(err, "xp_transactions_idempotency_key_unique")) {
+      try {
+        const [existing] = await db
+          .select()
+          .from(xpTransactionsTable)
+          .where(eq(xpTransactionsTable.idempotencyKey, idempotencyKey))
+          .limit(1);
+        return { transaction: existing ?? null, levelRow: null, attributeResults: [], alreadyAwarded: true };
+      } catch {
+        return { transaction: null, levelRow: null, attributeResults: [], alreadyAwarded: true };
       }
     }
-    return _awardXpCore(tx, params);
-  });
+    throw err;
+  }
 }

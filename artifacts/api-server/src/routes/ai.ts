@@ -34,9 +34,12 @@ import {
   generateDailyTip,
 } from "../lib/life-engine";
 import Groq from "groq-sdk";
+import { makeMutationLimiter } from "../lib/rate-limit";
 
 const router = Router();
 router.use(requireAuth);
+// AG-2: bound daily-task completion attempts per authenticated user.
+const completionLimiter = makeMutationLimiter();
 
 const MODEL = "llama-3.3-70b-versatile";
 
@@ -183,7 +186,7 @@ router.get("/daily-tasks", async (req, res) => {
 });
 
 // ── POST /api/ai/daily-tasks/:id/complete ────────────────────────────────────
-router.post("/daily-tasks/:id/complete", async (req, res) => {
+router.post("/daily-tasks/:id/complete", completionLimiter, async (req, res) => {
   const userId = req.user!.sub;
   const { id } = req.params;
   if (!isValidUuid(id)) { res.status(400).json({ message: "Invalid task id" }); return; }

@@ -5,9 +5,13 @@ import { questTemplatesTable, userQuestsTable } from "@workspace/db/schema";
 import { requireAuth } from "../lib/auth";
 import { awardXp, isValidAttribute, type AttributeAward } from "../lib/progression";
 import { isValidUuid } from "../lib/uuid";
+import { makeMutationLimiter } from "../lib/rate-limit";
 
 const router = Router();
 router.use(requireAuth);
+// AG-2: bound the number of quest mutation attempts per authenticated user.
+// Applied per-route so read-only endpoints are never throttled.
+const mutationLimiter = makeMutationLimiter();
 
 // GET /api/quests — user's current quests
 router.get("/", async (req, res) => {
@@ -67,7 +71,7 @@ router.get("/recommended", async (req, res) => {
 });
 
 // POST /api/quests/assign/:templateId — assign a quest to user
-router.post("/assign/:templateId", async (req, res) => {
+router.post("/assign/:templateId", mutationLimiter, async (req, res) => {
   const userId = req.user!.sub;
   const { templateId } = req.params;
   if (!isValidUuid(templateId)) { res.status(400).json({ message: "Invalid quest template id" }); return; }
@@ -97,6 +101,27 @@ router.post("/assign/:templateId", async (req, res) => {
 
   if (existing) {
     res.status(409).json({ message: "Quest already assigned" });
+    return;
+  }
+
+  // Repeatability control (AG-1): a quest template is a one-time mission. Once
+  // a user has COMPLETED it (the terminal state that awards XP), they may not
+  // re-assign the same template — otherwise assign→complete→re-assign becomes
+  // an unbounded XP-farming loop. Abandoning remains a legitimate retry path.
+  const [completed] = await db
+    .select({ id: userQuestsTable.id })
+    .from(userQuestsTable)
+    .where(
+      and(
+        eq(userQuestsTable.userId, userId),
+        eq(userQuestsTable.questTemplateId, templateId),
+        eq(userQuestsTable.status, "COMPLETED"),
+      ),
+    )
+    .limit(1);
+
+  if (completed) {
+    res.status(409).json({ message: "Quest already completed — this quest cannot be repeated" });
     return;
   }
 
@@ -132,7 +157,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // PATCH /api/quests/:id/progress
-router.patch("/:id/progress", async (req, res) => {
+router.patch("/:id/progress", mutationLimiter, async (req, res) => {
   const userId = req.user!.sub;
   if (!isValidUuid(req.params.id)) { res.status(400).json({ message: "Invalid quest id" }); return; }
   const progress = Number(req.body?.progress);
@@ -186,7 +211,7 @@ router.patch("/:id/progress", async (req, res) => {
 });
 
 // POST /api/quests/:id/abandon
-router.post("/:id/abandon", async (req, res) => {
+router.post("/:id/abandon", mutationLimiter, async (req, res) => {
   const userId = req.user!.sub;
   const questId = req.params.id;
   if (!isValidUuid(questId)) { res.status(400).json({ message: "Invalid quest id" }); return; }
@@ -227,7 +252,7 @@ router.post("/:id/abandon", async (req, res) => {
 });
 
 // POST /api/quests/:id/complete
-router.post("/:id/complete", async (req, res) => {
+router.post("/:id/complete", mutationLimiter, async (req, res) => {
   const userId = req.user!.sub;
   const questId = req.params.id;
   if (!isValidUuid(questId)) { res.status(400).json({ message: "Invalid quest id" }); return; }
@@ -306,7 +331,10 @@ router.post("/:id/complete", async (req, res) => {
     userId,
     sourceType: "QUEST_COMPLETION",
     sourceId: questId,
-    idempotencyKey: `quest_complete_${questId}`,
+    // Template-scoped idempotency (AG-1 defense-in-depth): even if a race
+    // produced two instances of the same template, the user can only ever be
+    // rewarded once per template. Globally unique per (user, template).
+    idempotencyKey: `quest_complete_${userId}_${quest.questTemplateId}`,
     xp: xpReward,
     category: "quest",
     description: template ? `Completed quest: ${template.title}` : "Completed quest",

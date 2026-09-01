@@ -1,5 +1,6 @@
 import { TASK_TEMPLATES, levelDifficulty } from "./templates";
 import { scoreCandidateFactors } from "./scoring";
+import { detectWeaknesses } from "./weakness-engine";
 import type {
   AnalyticsState,
   Attribute,
@@ -29,10 +30,15 @@ function reasonCodes(
   category: Attribute,
   state: EngineUserState,
   difficultyMatch: boolean,
+  weakAreas: Set<Attribute>,
 ): RecommendationReasonCode[] {
   const codes: RecommendationReasonCode[] = [];
   if (f.goalRelevance >= 0.7) codes.push("GOAL_RELEVANT");
-  if (f.weakness >= 0.7) codes.push("WEAK_AREA");
+  // WEAK_AREA reflects the same signal the Weakness Engine exposes (a set of
+  // underperforming areas from attribute gaps / low completion / abandonment),
+  // not merely the single weakest attribute. This keeps the recommendation's
+  // explanation consistent with /api/life-engine/weaknesses.
+  if (f.weakness >= 0.7 || weakAreas.has(category)) codes.push("WEAK_AREA");
   if (difficultyMatch || f.difficultyFit >= 0.7) codes.push("APPROPRIATE_DIFFICULTY");
   if (f.streak >= 0.7) codes.push("STREAK_PRESERVING");
   if (f.freshness >= 0.6) codes.push("NOVEL");
@@ -63,6 +69,7 @@ function asEngineState(state: AnalyticsState): EngineUserState {
 /** Scored task-template recommendations (0–100) with reason codes. */
 export function recommendTasks(state: AnalyticsState): Recommendation[] {
   const es = asEngineState(state);
+  const weakAreas = new Set(detectWeaknesses(state).map((w) => w.area));
   const scored: Recommendation[] = TASK_TEMPLATES.map((c) => {
     const f = scoreCandidateFactors(c, es);
     return {
@@ -70,7 +77,7 @@ export function recommendTasks(state: AnalyticsState): Recommendation[] {
       label: c.text,
       category: c.category,
       score: Math.round(f.total * 100),
-      reasonCodes: reasonCodes(f, c.category, es, false),
+      reasonCodes: reasonCodes(f, c.category, es, false, weakAreas),
     };
   });
   scored.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
@@ -80,6 +87,7 @@ export function recommendTasks(state: AnalyticsState): Recommendation[] {
 /** Scored quest-template recommendations with reason codes. */
 export function recommendQuests(state: AnalyticsState, templates: QuestTemplate[]): Recommendation[] {
   const es = asEngineState(state);
+  const weakAreas = new Set(detectWeaknesses(state).map((w) => w.area));
   const recommendedLevel = levelDifficulty(state.level);
 
   const scored: Recommendation[] = templates.map((t) => {
@@ -107,7 +115,7 @@ export function recommendQuests(state: AnalyticsState, templates: QuestTemplate[
       label: t.title,
       category: t.category,
       score: Math.round(total * 100),
-      reasonCodes: reasonCodes(f, category, es, t.difficulty === recommendedLevel),
+      reasonCodes: reasonCodes(f, category, es, t.difficulty === recommendedLevel, weakAreas),
     };
   });
   scored.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));

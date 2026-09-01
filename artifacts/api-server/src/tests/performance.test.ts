@@ -79,4 +79,32 @@ describe("STAGE 19 — performance envelope (Part 13)", () => {
       expect(ms).toBeLessThan(2000);
     }
   });
+
+  it("scales to 10,000 users with stable per-user cost (no quadratic degradation)", () => {
+    chain(mkState(0)); // warmup
+    const t0 = performance.now();
+    for (let i = 0; i < 10000; i++) chain(mkState(i));
+    const ms = performance.now() - t0;
+    const perUser = ms / 10000;
+    console.log(`[PERF] users=10000 total=${ms.toFixed(0)}ms per-user=${perUser.toFixed(4)}ms`);
+    // Observed ~0.1ms/user; bound generously at 1ms/user to catch regressions.
+    expect(perUser).toBeLessThan(1.0);
+  });
+
+  it("handles large quest histories (1000 quests) without quadratic blowup", () => {
+    const s = mkState(0);
+    const now = Date.now();
+    s.quests = Array.from({ length: 1000 }, (_, i) => ({
+      id: `q${i}`, templateId: `t${i % 20}`,
+      status: (["COMPLETED", "ABANDONED", "IN_PROGRESS"] as const)[i % 3],
+      category: ATTRS[i % 7], difficulty: "MEDIUM",
+      assignedAt: new Date(now - (i % 90) * DAY), completedAt: i % 3 === 0 ? new Date(now - (i % 90) * DAY) : null,
+    }));
+    const t0 = performance.now();
+    chain(s);
+    const ms = performance.now() - t0;
+    console.log(`[PERF] quests=1000 full-chain=${ms.toFixed(1)}ms`);
+    // Weakness/difficulty loop over quests; must stay well under a second.
+    expect(ms).toBeLessThan(500);
+  });
 });
