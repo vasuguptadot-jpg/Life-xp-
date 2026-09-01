@@ -188,7 +188,12 @@ router.patch("/:id/progress", mutationLimiter, async (req, res) => {
 
   const target = Number(quest.targetValue);
   const newProgress = Math.min(progress, target);
-  const newStatus = newProgress >= target ? "COMPLETED" : "IN_PROGRESS";
+  // Completion — and its XP award — is exclusively the job of POST /:id/complete.
+  // Advancing progress here must NEVER transition a quest to COMPLETED, otherwise
+  // a client (or a lost response between the progress write and the follow-up
+  // complete call) could leave a quest in the terminal "rewarded" state with its
+  // reward silently missing — a "quest complete but XP missing" integrity hole.
+  const newStatus = "IN_PROGRESS";
 
   // Re-assert ownership inside the UPDATE to prevent TOCTOU
   const [updated] = await db
@@ -196,7 +201,6 @@ router.patch("/:id/progress", mutationLimiter, async (req, res) => {
     .set({
       progressValue: String(newProgress),
       status: newStatus,
-      ...(newStatus === "COMPLETED" && { completedAt: new Date() }),
     })
     .where(
       and(

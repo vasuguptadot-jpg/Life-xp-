@@ -175,4 +175,34 @@ maybe("STAGE 21 — failure injection / transaction integrity (Part 2)", () => {
     const thisRewards = questTx.filter((t) => t.description === `Completed quest: ${thisTpl[0].title}`);
     expect(thisRewards.length).toBe(1);
   });
+
+  it("advancing progress to target does NOT complete the quest (completion+reward is /complete's job only)", async () => {
+    const tpl = await freshTemplate(75);
+    const qid = await assignQuest(tpl);
+    const before = await totalXp();
+    const txBefore = await xpCount();
+
+    // Drive progress straight to the target via PATCH /progress — a client could
+    // do this directly (or a lost response could strand the follow-up complete).
+    const prog = await request(app).patch(`/api/quests/${qid}/progress`)
+      .set("Authorization", `Bearer ${tokenA}`).send({ progress: 9999 });
+    expect(prog.status).toBe(200);
+    expect(prog.body.status).toBe("IN_PROGRESS"); // must NOT be COMPLETED
+
+    const row = await questRow(qid);
+    expect(row.status).toBe("IN_PROGRESS");
+    expect(Number(row.progressValue)).toBe(Number(row.targetValue));
+    // No XP may be awarded by progress alone (no NEW xp transactions).
+    expect(await totalXp()).toBe(before);
+    expect(await xpCount()).toBe(txBefore);
+
+    // Completion is the sole reward path.
+    const complete = await request(app).post(`/api/quests/${qid}/complete`)
+      .set("Authorization", `Bearer ${tokenA}`);
+    expect(complete.status).toBe(200);
+    expect(await totalXp()).toBe(before + 75);
+
+    const done = await questRow(qid);
+    expect(done.status).toBe("COMPLETED");
+  });
 });
