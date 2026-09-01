@@ -24,20 +24,35 @@ const INTENT_PATTERNS: Array<{ key: IntentKey; words: string[] }> = [
   { key: "completed_today", words: ["completed today", "complete today", "done today", "finished today", "completed so far", "today's tasks"] },
   { key: "momentum", words: ["momentum", "on a roll", "losing steam"] },
   { key: "progress", words: ["my progress", "progress", "how am i doing", "how am i performing", "am i improving"] },
-  { key: "weaknesses", words: ["weakness", "weak area", "weakest", "struggling", "underperforming", "what am i bad at", "falling behind"] },
-  { key: "recommendations", words: ["recommend", "what should i do", "suggestion", "what should i work on"] },
-  { key: "goals", words: ["my goals", "goal", "milestone", "break down"] },
-  { key: "streak", words: ["streak"] },
-  { key: "level", words: ["level", "rank"] },
-  { key: "xp", words: ["xp", "experience"] },
-  { key: "quests", words: ["quest"] },
+  { key: "weaknesses", words: ["weakness", "weaknesses", "weak area", "weakest", "struggling", "underperforming", "what am i bad at", "falling behind"] },
+  { key: "recommendations", words: ["recommend", "recommendation", "recommendations", "what should i do", "suggestion", "suggestions", "what should i work on"] },
+  { key: "goals", words: ["my goals", "goal", "goals", "milestone", "milestones", "break down"] },
+  { key: "streak", words: ["streak", "streaks"] },
+  { key: "level", words: ["level", "levels", "rank", "ranks"] },
+  { key: "xp", words: ["xp"] },
+  { key: "quests", words: ["quest", "quests"] },
 ];
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Match a single token on whole-word boundaries so that short tokens like
+ * "xp" (→ "explain", "experience", "expect") and "quest" (→ "question",
+ * "request") do not hijack unrelated messages. Multi-word phrases keep
+ * substring semantics because they are already unambiguous.
+ */
+function tokenMatches(text: string, word: string): boolean {
+  if (word.includes(" ")) return text.includes(word);
+  return new RegExp(`\\b${escapeRegex(word)}\\b`).test(text);
+}
 
 export function detectIntent(message: string): IntentKey | null {
   const text = message.toLowerCase().trim();
   if (text.length === 0 || text.length > 200) return null;
   for (const { key, words } of INTENT_PATTERNS) {
-    if (words.some((w) => text.includes(w))) return key;
+    if (words.some((w) => tokenMatches(text, w))) return key;
   }
   return null;
 }

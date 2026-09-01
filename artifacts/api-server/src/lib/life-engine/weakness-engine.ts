@@ -45,9 +45,11 @@ export function detectWeaknesses(state: AnalyticsState): WeaknessResult[] {
     let score = 0;
 
     // 1. Low trained attribute value relative to the strongest area.
-    //    Only meaningful once the user has trained SOMETHING (maxAttr > 0);
-    //    a brand-new user with all-zero attributes has no weakness signal.
-    if (maxAttr > 0) {
+    //    Only meaningful when the user has TRAINED this attribute (value > 0)
+    //    AND has trained something else (maxAttr > 0). An attribute at 0 with
+    //    no history is "untrained", not "underperforming" — flagging it as a
+    //    weakness would conflate insufficient data with poor performance.
+    if (maxAttr > 0 && state.attributes[a] > 0) {
       const attrGap = 1 - state.attributes[a] / maxAttr;
       if (attrGap > 0.2) {
         score += attrGap * 40;
