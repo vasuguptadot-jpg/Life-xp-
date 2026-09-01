@@ -28,12 +28,16 @@ export function recommendDifficulty(state: AnalyticsState): DifficultyRecommenda
 
   if (resolved.length >= 3) {
     const rate = completed / resolved.length;
-    if (rate >= 0.7) {
+    if (rate >= 0.7 && state.inactiveDays < 1) {
       adjustment = "increase";
       reason = `High completion rate (${Math.round(rate * 100)}%) — ready for a harder challenge.`;
     } else if (rate < 0.4) {
       adjustment = "decrease";
       reason = `Recent failures (${Math.round(rate * 100)}% completion) — easing difficulty to rebuild confidence.`;
+    } else if (rate >= 0.7) {
+      // High completion but not active today: the rate is stale relative to a
+      // current gap in activity. Never escalate a user who is not active today.
+      reason = `High completion rate (${Math.round(rate * 100)}%) but not active today — maintaining difficulty.`;
     } else {
       reason = `Stable completion rate (${Math.round(rate * 100)}%) — maintaining difficulty.`;
     }

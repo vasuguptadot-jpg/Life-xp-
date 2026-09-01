@@ -189,6 +189,22 @@ describe("Difficulty Engine", () => {
     expect(d.recommended).toBe("MEDIUM");
   });
 
+  it("does not escalate a user who is not active today (stale completion rate)", () => {
+    // Regression: a high 30-day completion rate must NOT raise difficulty while
+    // the user is currently inactive — the rate is stale relative to a gap.
+    const s = st({
+      level: 1,
+      inactiveDays: 6,
+      quests: Array.from({ length: 4 }, (_, i) => ({
+        id: `c${i}`, templateId: `t${i}`, status: "COMPLETED", category: "STRENGTH", difficulty: "EASY", assignedAt: day(5), completedAt: day(4),
+      })),
+    });
+    const d = recommendDifficulty(s);
+    expect(d.adjustment).not.toBe("increase");
+    expect(d.recommended).toBe("EASY");
+    expect(d.reason).toMatch(/not active today/i);
+  });
+
   it("decreases difficulty on repeated failure", () => {
     const s = st({
       level: 10,
