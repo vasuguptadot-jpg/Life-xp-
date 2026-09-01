@@ -1,0 +1,154 @@
+{
+  "stage": 21,
+  "title": "LifeXP Production Readiness, Failure Injection & Final Integrity Audit",
+  "status": "COMPLETE",
+  "verdict": "YELLOW",
+  "baseline": {
+    "commit": "d0a96672ebd3b0ae696d0f948e9936712b1761a7",
+    "recovered_from_remote": true,
+    "environment": "postgres 18.4 @ 127.0.0.1:5434 (embedded-postgres cluster /tmp/realpg/data)",
+    "toolchain": "pnpm + node v22 + drizzle + vitest",
+    "tests_before": "270/270 (25 files)",
+    "typecheck_before": "PASS",
+    "build_before": "PASS"
+  },
+  "parts": {
+    "1_daily_xp_cap_and_unique_index_followup": {
+      "status": "DOCUMENTED_NOT_IMPLEMENTED",
+      "daily_xp_cap": "NOT added — reward model bounded by repeatability controls (source idempotency keys), not a daily aggregate; a hidden cap would be an arbitrary economic limit and would break the totalXp == sum-of-awarded-events invariant",
+      "unique_index_ai_daily_tasks": "NOT added — a plain UNIQUE(user_id,date) would reject the legitimate 5-tasks-per-date set; the real concurrent-duplicate hazard was closed with pg_advisory_xact_lock per (user,date)",
+      "regression": "daily-task-concurrency.test.ts (3)"
+    },
+    "2_failure_injection": {
+      "status": "CLOSED",
+      "defects_fixed": ["D-1 quest completion non-atomic", "D-2 daily-task completion non-atomic", "D-3 concurrent daily-task duplicate sets", "D-4 concurrent daily-tip duplicate rows"],
+      "mechanism": "single db.transaction wrapping status + awardXpInTransaction; pg_advisory_xact_lock(hashtext(user||date)) serializing check-then-insert",
+      "regression": "failure-injection.test.ts (5), daily-task-concurrency.test.ts (3)"
+    },
+    "3_idempotency_audit": {
+      "status": "COMPLETE",
+      "global_framework_added": false,
+      "matrix": "idempotency-audit.test.ts (6) + table in STAGE21_PRODUCTION_READINESS_AUDIT.md",
+      "notes": "keys exist only where justified (quest completion, daily-task completion); chat rows and signup are inherently non-idempotent and correctly so"
+    },
+    "4_multi_device_concurrency": {
+      "status": "PASS",
+      "invariants": ["no lost updates", "no duplicate rewards", "no impossible levels", "no negative attributes", "deterministic final state"],
+      "regression": "multi-device-concurrency.test.ts (5)"
+    },
+    "5_input_fuzz": {
+      "status": "PASS",
+      "crash_found": false,
+      "finding": "C-1 signup email type/format not validated (documented)",
+      "regression": "input-fuzz.test.ts (8)"
+    },
+    "6_auth_session_security": {
+      "status": "PASS",
+      "coverage": ["security-regression.test.ts", "rate-limiting.test.ts", "refresh-rotation.test.ts", "account-enumeration in resource-exhaustion.test.ts"],
+      "no_speculative_changes": true
+    },
+    "7_data_lifecycle_deletion": {
+      "status": "PASS",
+      "finding": "C-2 account deletion orphans conversations (documented)",
+      "regression": "data-lifecycle.test.ts (3)"
+    },
+    "8_time_clock_integrity": {
+      "status": "PASS",
+      "single_clock_abstraction": "dayKey() UTC",
+      "finding": "C-7 UTC day boundary, no user timezone (documented)",
+      "regression": "time-integrity.test.ts (5)"
+    },
+    "9_engine_consistency": {
+      "status": "PASS",
+      "coverage": ["determinism.test.ts", "explainability.test.ts", "life-engine*.test.ts"]
+    },
+    "10_ai_isolation": {
+      "status": "PASS",
+      "coverage": "ai-boundary.test.ts"
+    },
+    "11_resource_exhaustion": {
+      "status": "PASS",
+      "finding": "C-6 unbounded caption/message TEXT (100 KB json cap only, documented)",
+      "regression": "resource-exhaustion.test.ts (5)"
+    },
+    "12_sse_reliability": {
+      "status": "PARTIAL",
+      "auth_covered": "sse-auth.test.ts",
+      "finding": "C-8 in-memory Map client registry — single-node, no replay/reconnect, lost on restart (documented)"
+    },
+    "13_economy_simulation": {
+      "status": "PASS",
+      "coverage": "longitudinal-adversarial.test.ts + longitudinal-simulation.test.ts",
+      "arbitrary_limits_invented": false
+    },
+    "14_database_integrity": {
+      "status": "PASS",
+      "findings": ["C-3 user_quests unique includes assigned_at", "C-4 non-unique (user_id,date) index", "C-5 attribute_history NULL source_id dedup bypass"],
+      "regression": "db-integrity.test.ts (5)"
+    },
+    "15_performance": {
+      "status": "PASS",
+      "coverage": "performance.test.ts"
+    },
+    "16_browser_chaos": {
+      "status": "UNVERIFIED",
+      "reason": "Chromium infrastructure (/tmp/e2e, /tmp/al2023, @sparticuz/chromium) was not present in this session's workspace; refresh/double-click/back-forward/slow-offline journeys not executed"
+    },
+    "17_production_config": {
+      "status": "PASS",
+      "secrets_committed": false,
+      "env_documented": ".env.example",
+      "cors": "production restricted to CORS_ORIGINS allow-list",
+      "prod_infra_claimed": false
+    },
+    "18_final_regression": {
+      "full_suite": "315/315 (34 files)",
+      "typecheck": "PASS",
+      "build": "PASS",
+      "failure_injection": "5/5",
+      "concurrency": "8/8",
+      "idempotency": "6/6",
+      "input_fuzz": "8/8",
+      "secret_scan": "clean",
+      "browser_e2e": "UNVERIFIED"
+    }
+  },
+  "findings": [
+    { "id": "D-1", "class": "D", "title": "Quest completion non-atomic (XP vs status divergence on failure)", "disposition": "FIXED — single transaction + 409 race guard", "regression": "failure-injection.test.ts" },
+    { "id": "D-2", "class": "D", "title": "Daily-task completion non-atomic", "disposition": "FIXED — single transaction", "regression": "failure-injection.test.ts" },
+    { "id": "D-3", "class": "D", "title": "Concurrent daily-task generation minted duplicate 5-task sets (double XP)", "disposition": "FIXED — advisory lock", "regression": "daily-task-concurrency.test.ts" },
+    { "id": "D-4", "class": "D", "title": "Concurrent daily-tip generation minted duplicate rows", "disposition": "FIXED — advisory lock", "regression": "daily-task-concurrency.test.ts" },
+    { "id": "C-1", "class": "C", "title": "signup does not validate email type/format", "disposition": "Documented (no product spec)" },
+    { "id": "C-2", "class": "C", "title": "account deletion orphans conversations", "disposition": "Documented (deletion gap)" },
+    { "id": "C-3", "class": "C", "title": "user_quests unique key can't prevent duplicate active rows", "disposition": "Documented" },
+    { "id": "C-4", "class": "C", "title": "ai_daily_tasks/tips non-unique (user_id,date) index", "disposition": "Documented (correct for tasks)" },
+    { "id": "C-5", "class": "C", "title": "attribute_history dedup bypassable via NULL source_id", "disposition": "Documented (latent)" },
+    { "id": "C-6", "class": "C", "title": "unbounded caption/message TEXT (100 KB json cap only)", "disposition": "Documented" },
+    { "id": "C-7", "class": "C", "title": "UTC day boundary, no user timezone", "disposition": "Documented (product policy)" },
+    { "id": "C-8", "class": "C", "title": "SSE in-memory Map (single-node, no replay)", "disposition": "Documented (arch)" },
+    { "id": "C-9", "class": "C", "title": "concurrent conversation creation can mint duplicate threads", "disposition": "Documented (race)" }
+  ],
+  "test_delta": {
+    "tests_before": 270,
+    "tests_after": 315,
+    "new_tests": 45,
+    "new_files": [
+      "failure-injection.test.ts",
+      "daily-task-concurrency.test.ts",
+      "multi-device-concurrency.test.ts",
+      "input-fuzz.test.ts",
+      "idempotency-audit.test.ts",
+      "data-lifecycle.test.ts",
+      "time-integrity.test.ts",
+      "db-integrity.test.ts",
+      "resource-exhaustion.test.ts"
+    ]
+  },
+  "code_changes": [
+    "lib/progression.ts: extracted awardXpInTransaction(tx, params)",
+    "routes/quests.ts: /complete atomic (status + award in one tx), QuestConcurrentError -> 409",
+    "routes/ai.ts: daily-task /complete atomic",
+    "lib/life-engine/daily-task-engine.ts: advisory-xact-lock per (user,date)",
+    "lib/life-engine/life-tip-engine.ts: advisory-xact-lock per (user,date)"
+  ]
+}

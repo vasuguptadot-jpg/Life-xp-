@@ -176,6 +176,30 @@ function isUniqueViolation(err: unknown, constraint: string): boolean {
 }
 
 /**
+ * Award XP inside an ALREADY-OPEN transaction owned by the caller.
+ *
+ * This is the atomicity primitive: a caller can put the business mutation that
+ * *earns* the reward (e.g. marking a quest COMPLETED) in the SAME transaction
+ * as the reward itself, so a failure can never leave a half-applied state such
+ * as "quest complete but XP missing". Performs the idempotency check inside the
+ * transaction so replays are still safe.
+ */
+export async function awardXpInTransaction(tx: DbOrTx, params: AwardXpParams): Promise<AwardXpResult> {
+  const { idempotencyKey } = params;
+  if (idempotencyKey) {
+    const [existing] = await tx
+      .select()
+      .from(xpTransactionsTable)
+      .where(eq(xpTransactionsTable.idempotencyKey, idempotencyKey))
+      .limit(1);
+    if (existing) {
+      return { transaction: existing, levelRow: null, attributeResults: [], alreadyAwarded: true };
+    }
+  }
+  return _awardXpCore(tx, params);
+}
+
+/**
  * Award XP as a standalone operation (creates its own transaction).
  * Performs idempotency check before proceeding.
  */
@@ -195,20 +219,7 @@ export async function awardXp(params: AwardXpParams): Promise<AwardXpResult> {
   }
 
   try {
-    return await db.transaction(async (tx) => {
-      // Re-check inside transaction to prevent races
-      if (idempotencyKey) {
-        const [existing] = await tx
-          .select()
-          .from(xpTransactionsTable)
-          .where(eq(xpTransactionsTable.idempotencyKey, idempotencyKey))
-          .limit(1);
-        if (existing) {
-          return { transaction: existing, levelRow: null, attributeResults: [], alreadyAwarded: true };
-        }
-      }
-      return _awardXpCore(tx, params);
-    });
+    return await db.transaction(async (tx) => awardXpInTransaction(tx, params));
   } catch (err) {
     // Under high concurrency two transactions can both pass the inner re-check
     // (READ COMMITTED) and both attempt the INSERT; the unique constraint on

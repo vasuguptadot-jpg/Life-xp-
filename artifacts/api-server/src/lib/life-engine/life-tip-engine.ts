@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { aiDailyTipsTable } from "@workspace/db/schema";
 import { TIP_LIBRARY } from "./templates";
@@ -24,31 +24,32 @@ export interface GeneratedLifeTip {
 export async function generateDailyTip(userId: string): Promise<GeneratedLifeTip> {
   const today = dayKey(new Date());
 
-  const [existing] = await db
-    .select()
-    .from(aiDailyTipsTable)
-    .where(and(eq(aiDailyTipsTable.userId, userId), eq(aiDailyTipsTable.date, today)))
-    .limit(1);
+  // Same concurrency hazard as daily-task generation: serialize the
+  // check-then-insert per (user, date) with an advisory lock so two concurrent
+  // first-calls cannot mint duplicate tip rows.
+  const row = await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`tip:${userId}:${today}`}))`);
 
-  if (existing) {
-    return {
-      id: existing.id,
-      date: existing.date,
-      tip: existing.tip,
-      category: existing.category,
-      createdAt: existing.createdAt,
-    };
-  }
+    const [existing] = await tx
+      .select()
+      .from(aiDailyTipsTable)
+      .where(and(eq(aiDailyTipsTable.userId, userId), eq(aiDailyTipsTable.date, today)))
+      .limit(1);
 
-  const state = await buildEngineState(userId);
-  const rule = detectTipRule(state);
-  const entries = TIP_LIBRARY[rule];
-  const entry = entries[pickByHash(entries, userId, today)] ?? entries[0];
+    if (existing) return existing;
 
-  const [row] = await db
-    .insert(aiDailyTipsTable)
-    .values({ userId, date: today, tip: entry.tip, category: entry.category })
-    .returning();
+    const state = await buildEngineState(userId);
+    const rule = detectTipRule(state);
+    const entries = TIP_LIBRARY[rule];
+    const entry = entries[pickByHash(entries, userId, today)] ?? entries[0];
+
+    const [inserted] = await tx
+      .insert(aiDailyTipsTable)
+      .values({ userId, date: today, tip: entry.tip, category: entry.category })
+      .returning();
+
+    return inserted;
+  });
 
   return {
     id: row.id,

@@ -9,7 +9,7 @@ import {
 } from "@workspace/db/schema";
 import { requireAuth } from "../lib/auth";
 import { isValidUuid } from "../lib/uuid";
-import { awardXp, isValidAttribute } from "../lib/progression";
+import { awardXpInTransaction, isValidAttribute } from "../lib/progression";
 import {
   buildEngineState,
   buildAnalyticsState,
@@ -206,38 +206,49 @@ router.post("/daily-tasks/:id/complete", completionLimiter, async (req, res) => 
     return;
   }
 
-  const [updated] = await db
-    .update(aiDailyTasksTable)
-    .set({ isCompleted: true, completedAt: new Date() })
-    .where(
-      and(
-        eq(aiDailyTasksTable.id, id),
-        eq(aiDailyTasksTable.userId, userId),
-        eq(aiDailyTasksTable.isCompleted, false),
-      ),
-    )
-    .returning();
+  const cat = task.category.toUpperCase();
+  const validAttr = isValidAttribute(cat) ? cat : null;
+
+  // Mark-complete + XP award are ATOMIC: a failure between them cannot leave a
+  // task "completed but unrewarded" (or the reverse). The idempotency key still
+  // makes concurrent/duplicate completions safe.
+  const { updated, xpResult } = await db.transaction(async (tx) => {
+    const [u] = await tx
+      .update(aiDailyTasksTable)
+      .set({ isCompleted: true, completedAt: new Date() })
+      .where(
+        and(
+          eq(aiDailyTasksTable.id, id),
+          eq(aiDailyTasksTable.userId, userId),
+          eq(aiDailyTasksTable.isCompleted, false),
+        ),
+      )
+      .returning();
+
+    if (!u) {
+      return { updated: null, xpResult: null };
+    }
+
+    const xp = await awardXpInTransaction(tx, {
+      userId,
+      sourceType: "DAILY_TASK",
+      sourceId: id,
+      idempotencyKey: `daily_task_${id}`,
+      xp: task.xpReward,
+      category: "daily",
+      description: task.taskText,
+      ...(validAttr
+        ? { attributes: [{ attribute: validAttr, xp: Math.floor(task.xpReward / 2) }] }
+        : {}),
+    });
+
+    return { updated: u, xpResult: xp };
+  });
 
   if (!updated) {
     res.json({ task, alreadyCompleted: true });
     return;
   }
-
-  const cat = task.category.toUpperCase();
-  const validAttr = isValidAttribute(cat) ? cat : null;
-
-  const xpResult = await awardXp({
-    userId,
-    sourceType: "DAILY_TASK",
-    sourceId: id,
-    idempotencyKey: `daily_task_${id}`,
-    xp: task.xpReward,
-    category: "daily",
-    description: task.taskText,
-    ...(validAttr
-      ? { attributes: [{ attribute: validAttr, xp: Math.floor(task.xpReward / 2) }] }
-      : {}),
-  });
 
   res.json({ task: updated, xp: xpResult });
 });
