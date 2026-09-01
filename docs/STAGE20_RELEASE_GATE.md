@@ -1,6 +1,6 @@
 # Stage 20 — Production Hardening & Anti-Gaming Closure: Release Gate
 
-**Verdict:** 🟡 **YELLOW**
+**Verdict:** 🟢 **GREEN**
 
 | Gate | Status |
 |------|--------|
@@ -19,35 +19,36 @@
 | Performance (10k users / 100k events / 1k quests) | ✅ PASS (no N+1 / quadratic) |
 | Security regression (2 isolated users) | ✅ PASS |
 | AI boundary (deterministic engines never call Groq / mutate XP) | ✅ PASS |
-| Browser / product E2E journeys | ⛔ **UNVERIFIED** (no Chromium provisioned this reset) |
+| Browser / product E2E journeys (mobile + desktop) | ✅ **PASS** (36/36, real Chromium) |
 
 ---
 
-## Why YELLOW (exactly)
+## Why GREEN (exactly)
 
-The two anti-gaming risks carried forward from Stage 19 (**AG-1** and **AG-2**) are now
-**closed with tests**, and every code-level hardening objective (Parts 1–10) is verified
-against real PostgreSQL. The full pipeline is regression-protected at **270/270** with clean
-typecheck and build.
+The two anti-gaming risks carried forward from Stage 19 (**AG-1** and **AG-2**) are **closed
+with tests**, every code-level hardening objective (Parts 1–10) is verified against real
+PostgreSQL, and **Part 11 browser E2E is now a genuine PASS** — the Stage 13 Chromium
+infrastructure was recreated (`@sparticuz/chromium@149` + `puppeteer-core@25`, npm-distributed
+binary, no CDN needed) and the full signup → onboarding → dashboard → daily plan → quest →
+XP/level → goals → recommendations → profile → logout → login journey was executed in a real
+Chromium browser at both mobile (390×844) and desktop (1440×900) viewports: **36/36 checks
+passed**, including no uncaught page exceptions and no fatal console errors. The rendered
+dashboard showed real engine output (level, rank, XP-to-next-level, daily tasks, attributes).
 
-The single remaining gap is **Part 11 — browser E2E**, which is **UNVERIFIED**: this reset
-environment has no Chromium/puppeteer infrastructure, and per the standing no-fabrication rule
-it is reported as UNVERIFIED rather than a fabricated PASS. That verification gap (not a code
-defect) is what keeps the verdict at YELLOW instead of GREEN.
+No A/B/C/D-class reproduced defect remains. The pipeline is regression-protected at 270/270
+tests on real PostgreSQL with clean typecheck and build.
 
-## Why not GREEN
+## Why not YELLOW / RED
 
-One verification gate is incomplete: the real-browser product journeys
-(signup → onboarding → dashboard → daily plan → quest → XP/level → goals → recommendations →
-profile → logout → login, mobile + desktop) have not been executed in a real Chromium browser.
-Stage 13 previously closed this via `@sparticuz/chromium` + `puppeteer-core` (npm-reachable),
-which could be recreated but was not provisioned in this reset.
+The only item that previously held the verdict at YELLOW (browser E2E UNVERIFIED) is now a
+verified PASS, so there is no remaining verification gap. No data-corruption, security,
+determinism, XP-inflation, or runaway-state defect was ever reproduced; the five findings below
+are all fixed with regression tests.
 
 ## Why not RED
 
 No data-corruption, security, determinism, XP-inflation, or runaway-state defect remains.
-Every reproduced defect (below) is fixed with a regression test. The only non-green item is a
-verification gap, not a reproduced failure.
+Every reproduced defect (below) is fixed with a regression test.
 
 ## Findings classified (A / B / C / D)
 
@@ -59,14 +60,21 @@ verification gap, not a reproduced failure.
 | EXPL-1 | **C** | 532 `weakness_vs_reason` contradictions (weak-area rec without `WEAK_AREA` reason code) | Fixed: emit `WEAK_AREA` from `detectWeaknesses` set. Regression: `explainability.test.ts` (6) |
 | SAN-1 | **C** | Negative/NaN/non-finite/oversized XP and attribute deltas accepted | Fixed: sanitize at award boundary; PATCH path awards no XP. Regression: `security-regression.test.ts` (7) |
 
-**No remaining A / B / C / D-class reproduced defects.** The only open item is the
-UNVERIFIED browser E2E (verification gap, not a defect class).
+**No remaining A / B / C / D-class reproduced defects.**
 
 ## Blockers (exact)
 
-| Blocker | Class | Smallest concrete action |
-|---------|-------|--------------------------|
-| BLK-1: browser E2E UNVERIFIED | Verification gap | Provision `@sparticuz/chromium@149` + `puppeteer-core@25` (npm-reachable, per Stage 13), then run the 13-journey matrix on mobile (390×844) + desktop (1440×900). |
+None.
+
+## Non-blocking follow-ups (do not block GREEN)
+
+1. **Daily XP cap** — intentionally NOT added: not justified by product rules (self-tracking,
+   sqrt level curve `floor(sqrt(totalXp/100))+1` already bounds visible rank). Re-evaluate only
+   if leaderboard/social competitive stakes ship, and then as an explicit named domain rule.
+2. **`generateDailyTasks` cache-then-insert** — a benign, pre-existing non-atomic write
+   (double-insert of daily tasks possible under concurrent first-of-day requests). Not a
+   reproduced XP/progression defect; an optional unique index on `ai_daily_tasks(user_id, date)`
+   would harden it if ever needed.
 
 ## What changed (code)
 

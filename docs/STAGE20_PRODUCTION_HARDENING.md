@@ -1,11 +1,11 @@
 # Stage 20 — LifeXP Production Hardening & Anti-Gaming Closure
 
-**Verdict:** 🟡 YELLOW · **Tests:** 270/270 (25 files, real PostgreSQL 18.4) · **Typecheck/Build:** PASS
+**Verdict:** 🟢 GREEN · **Tests:** 270/270 (25 files, real PostgreSQL 18.4) · **Browser E2E:** 36/36 (mobile + desktop) · **Typecheck/Build:** PASS
 
 This stage hardens LifeXP against exploitation and tightens trustworthiness — it adds no
 cosmetic features. Two anti-gaming risks carried forward from Stage 19 (AG-1, AG-2) are closed;
-every reproduced defect is fixed with a regression test. Browser E2E remains UNVERIFIED due to
-missing infrastructure.
+every reproduced defect is fixed with a regression test; and the full product journey is
+verified in a real Chromium browser.
 
 ---
 
@@ -130,21 +130,34 @@ intents work with `GROQ_API_KEY` absent (200, engine answer); open-ended chat re
 503 when the key is absent; deterministic engines and deterministic chat answers never mutate XP
 or progression; the intent layer does not bypass authorization (401 without token).
 
-## Part 11 — Browser / product E2E — UNVERIFIED
+## Part 11 — Browser / product E2E — PASS
 
-No Chromium/puppeteer infrastructure is provisioned in this reset environment, and the Stage 13
-real-browser path (`@sparticuz/chromium@149` + `puppeteer-core@25`, npm-reachable) was not
-recreated. Per the standing no-fabrication rule this is reported **UNVERIFIED**, not PASS.
+The Stage 13 Chromium infrastructure was recreated: real Chromium 149.0.7827.0 (npm-distributed
+`@sparticuz/chromium@149.0.0` binary, no CDN download) + `puppeteer-core@25.9.0` headless, with
+the NSS/AL2023 shared libraries supplied via `LD_LIBRARY_PATH`. The API server (esbuild dist)
+ran on :8080 against real PostgreSQL 18.4; the built web app (vite) was served same-origin via a
+static+proxy on :9000 (`/api` forwarded).
 
-## Part 12 — Release decision — YELLOW
+Full journey executed in a real browser at **mobile 390×844** and **desktop 1440×900**:
+
+signup → onboarding (5 steps: welcome → baseline → focus areas → class → complete) → dashboard
+(level/XP/rank render) → daily plan/tasks → quests → goals → recommendations → profile →
+logout → login (session persistence) — **36/36 checks passed**, with no uncaught page
+exceptions and no fatal console errors. The dashboard rendered real engine output: level `1`,
+rank `Initiate`, `0 / 1,000 XP to next level`, `Total earned: 0 XP`, `DAILY PROGRESS`,
+`TODAY'S TASKS` (e.g. "Do 3 sets of 10 push-ups"), `ATTRIBUTES`, `TODAY'S TIP`.
+
+The auth rate limiter (10/15 min per IP) was independently observed returning 429 during
+repeated runs — confirming it is functional; a single clean run of both viewports uses 6 auth
+requests, under the limit.
+
+## Part 12 — Release decision — GREEN
 
 - **Findings:** 5 total — D×1 (concurrency), C×2 (explainability, sanitization), AG-1/AG-2
   closed (were C/B in Stage 19). All reproduced → root cause → minimal fix → regression test →
   full regression.
-- **Blockers (exact):** BLK-1 browser E2E UNVERIFIED (verification gap, not a code defect).
-  Smallest action: provision the Stage 13 Chromium path and run the 13-journey matrix on mobile
-  + desktop.
+- **Blockers (exact):** none.
 - **No schema changes. No AI changes. No speculative architecture.**
 
-See `STAGE20_RESULTS.json` (machine-readable) and `STAGE20_RELEASE_GATE.md` (gate + blocker
+See `STAGE20_RESULTS.json` (machine-readable) and `STAGE20_RELEASE_GATE.md` (gate + follow-up
 detail).
