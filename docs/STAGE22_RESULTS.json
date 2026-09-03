@@ -1,0 +1,79 @@
+{
+  "stage": "Stage 22 — Production Observability, Diagnostics & Operational Resilience",
+  "decision": "GREEN",
+  "baseline": {
+    "remote_head": "60bf46f839d5f7aec2504583125e3100b810f1cb",
+    "branch": "arena/01a05271-life-xp",
+    "baseline_tests": "316/316 (34 files)",
+    "baseline_typecheck": "PASS",
+    "baseline_build": "PASS",
+    "baseline_secret_scan": "clean",
+    "note": "Environment reset recovered via git fetch + reset --hard origin/arena/01a05271-life-xp (Stage 21.1 commit preserved)"
+  },
+  "observability": {
+    "structured_logging": "pino JSON (level/time/pid/hostname + event/category)",
+    "error_taxonomy": "validation/authentication/authorization/not_found/conflict/rate_limit/database/transaction/external_service/timeout/internal",
+    "request_correlation": "X-Request-Id header on every response; 50 concurrent requests verified distinct",
+    "severity": "client errors warn, internal errors error, readiness/db failures error",
+    "new_events": [
+      "auth.failed", "rate_limit.rejected", "database.pool.error",
+      "readiness.failed", "xp.awarded", "xp.award.replayed",
+      "external.groq.failed", "external.storage.failed",
+      "sse.connection.opened", "sse.connection.closed", "sse.delivery.failed"
+    ]
+  },
+  "health_readiness": {
+    "liveness": "/api/healthz (200 regardless of DB)",
+    "readiness": "/api/readyz (SELECT 1, 503 on DB down, does NOT require GROQ_API_KEY)",
+    "verified": ["healthy 200", "db down 503", "recovered 200"]
+  },
+  "failure_injection": {
+    "pg_unavailable": {
+      "behavior": "server stays ALIVE (pre-fix: crashed), readyz 503 {status:unavailable,database:down}, healthz 200",
+      "log": "readiness.failed (category=database, ECONNREFUSED 127.0.0.1:5434)"
+    },
+    "pg_restored": { "behavior": "readyz 200 {status:ok,database:up} via pool auto-reconnect" },
+    "ai_unavailable": "Groq fail -> generic 503, no key/endpoint/stack leak; deterministic daily-task/tip paths fall back to engine output",
+    "transaction_failure": "covered by failure-injection.test.ts (int4 overflow rolls back completion + reward atomically)",
+    "sse_churn": "sse-lifecycle.test.ts 100-loop connect/disconnect -> registry returns to 0 (no leak)"
+  },
+  "recovery_verification": {
+    "pg_down": "fails safely -> diagnostic emitted -> process survives",
+    "pg_restored": "reconnects -> readyz 200 -> resumes",
+    "ai_down": "deterministic path functional + observable -> resumes when key restored",
+    "sse_disconnect": "cleaned -> reconnect -> events resume, no duplicates"
+  },
+  "performance": {
+    "note": "No performance regression; request durations logged via pino-http responseTime (ms). No unbounded maps: SSE registry tracks and reclaims clients; daily-task generation is idempotent per (user,date)."
+  },
+  "resource_memory": {
+    "db_pool": "bounded by pg.Pool defaults; 'error' handler prevents crash",
+    "sse_registry": "register/unregister symmetric; getClientCount returns 0 after churn (verified)",
+    "rate_limiter": "in-memory express-rate-limit (bounded, keyed by user)"
+  },
+  "findings": [
+    { "id": "D-1", "class": "D", "summary": "PostgreSQL restart crashed the whole API server (unhandled pool 'error' event)", "disposition": "FIXED + regression test db-pool-resilience.test.ts" },
+    { "id": "C-1", "class": "C", "summary": "auth/refresh limiters did not emit rate_limit.rejected event", "disposition": "FIXED" },
+    { "id": "C-2", "class": "C", "summary": "database.pool.error lacked pino-shaped level/time/pid", "disposition": "FIXED" }
+  ],
+  "regression": {
+    "full_suite": "344/344 (40 files)",
+    "breakdown": "316 baseline + 25 Stage 22 + 3 pool-resilience",
+    "typecheck": "PASS",
+    "build": "PASS",
+    "secret_scan": "clean",
+    "concurrency_soak": "36/36 x 3 runs (no flake)",
+    "browser_chaos": "12/12 (6 scenarios x mobile 390x844 + desktop 1440x900, real Chromium 149.0.7827.0)"
+  },
+  "release_gate": {
+    "no_unresolved_D": true,
+    "no_critical_observability_blind_spot": true,
+    "health_readiness_verified": true,
+    "critical_failures_observable": true,
+    "recovery_verified": true,
+    "diagnostic_endpoints_secure": true,
+    "no_secret_leakage": true,
+    "stage21_fully_green": true,
+    "full_regression_passes": true
+  }
+}

@@ -6,16 +6,33 @@ import rateLimit from "express-rate-limit";
 import { db } from "@workspace/db";
 import { usersTable, refreshTokensTable } from "@workspace/db/schema";
 import { requireAuth, signToken } from "../lib/auth";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
 // ── Rate limiting ──────────────────────────────────────────────────────────────
+// Rate-limit observability: a rejection is a structured, anonymized warn event
+// (method + path only — never a user id or request id, so it cannot be abused
+// to enumerate accounts). This mirrors makeMutationLimiter's handler.
+const rateLimitRejected = (req: import("express").Request, res: import("express").Response, message: string) => {
+  logger.warn(
+    {
+      event: "rate_limit.rejected",
+      category: "rate_limit",
+      method: req.method,
+      path: (req.originalUrl ?? req.path).split("?")[0],
+    },
+    message,
+  );
+  res.status(429).json({ message });
+};
+
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { message: "Too many attempts, please try again later" },
+  handler: (req, res) => rateLimitRejected(req, res, "Too many attempts, please try again later"),
   // Skip in test environment so tests aren't blocked
   skip: () => process.env.NODE_ENV === "test",
 });
@@ -25,7 +42,7 @@ const refreshLimiter = rateLimit({
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { message: "Too many token refresh requests, please try again later" },
+  handler: (req, res) => rateLimitRejected(req, res, "Too many token refresh requests, please try again later"),
   skip: () => process.env.NODE_ENV === "test",
 });
 

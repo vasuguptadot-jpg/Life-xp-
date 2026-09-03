@@ -3,6 +3,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { usersTable, userLevelsTable, userProfilesTable, postsTable, postLikesTable } from "@workspace/db/schema";
 import { requireAuth } from "../lib/auth";
+import { logger } from "../lib/logger";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { isValidUuid } from "../lib/uuid";
 import multer from "multer";
@@ -252,9 +253,17 @@ router.post("/uploads", upload.single("file"), async (req, res) => {
     const ext = rawExt === "jpeg" ? "jpg" : rawExt === "quicktime" ? "mov" : rawExt;
     const objectPath = await storage.uploadBufferAsEntity(file.buffer, file.mimetype, ext);
     res.json({ objectPath, type: isImage ? "image" : "video" });
-  } catch (err: any) {
-    console.error("Upload error:", err);
-    res.status(500).json({ message: err.message ?? "Upload failed" });
+  } catch (err: unknown) {
+    logger.error(
+      {
+        event: "external.storage.failed",
+        category: "external_service",
+        operation: "upload",
+        err: err instanceof Error ? err : new Error(String(err)),
+      },
+      "Object storage upload failed",
+    );
+    res.status(500).json({ message: "Upload failed" });
   }
 });
 
@@ -268,8 +277,17 @@ router.post("/uploads/request-url", async (req, res) => {
     const uploadURL = await storage.getObjectEntityUploadURL();
     const objectPath = storage.normalizeObjectEntityPath(uploadURL);
     res.json({ uploadURL, objectPath });
-  } catch (err: any) {
-    res.status(500).json({ message: err.message });
+  } catch (err: unknown) {
+    logger.error(
+      {
+        event: "external.storage.failed",
+        category: "external_service",
+        operation: "presigned_url",
+        err: err instanceof Error ? err : new Error(String(err)),
+      },
+      "Object storage presigned-url failed",
+    );
+    res.status(500).json({ message: "Upload failed" });
   }
 });
 

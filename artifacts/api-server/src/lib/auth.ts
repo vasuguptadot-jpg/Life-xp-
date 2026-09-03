@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { logger } from "./logger";
 
 const JWT_SECRET = process.env.SESSION_SECRET;
 if (!JWT_SECRET) throw new Error("SESSION_SECRET env var is required");
@@ -28,6 +29,15 @@ export function verifyToken(token: string): JwtPayload {
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
   const header = req.headers.authorization;
   if (!header?.startsWith("Bearer ")) {
+    logger.info(
+      {
+        event: "auth.failed",
+        category: "authentication",
+        reason: "missing_bearer_header",
+        path: (req.originalUrl ?? req.path).split("?")[0],
+      },
+      "Authentication failed — no bearer token",
+    );
     res.status(401).json({ message: "Unauthorized" });
     return;
   }
@@ -36,6 +46,15 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     req.user = verifyToken(token);
     next();
   } catch {
+    logger.info(
+      {
+        event: "auth.failed",
+        category: "authentication",
+        reason: "invalid_or_expired_token",
+        path: (req.originalUrl ?? req.path).split("?")[0],
+      },
+      "Authentication failed — invalid or expired token",
+    );
     res.status(401).json({ message: "Invalid or expired token" });
   }
 }

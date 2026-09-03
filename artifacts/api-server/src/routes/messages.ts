@@ -2,6 +2,7 @@ import { Router } from "express";
 import { sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { requireAuth, verifyToken } from "../lib/auth";
+import { broadcast, registerClient, unregisterClient } from "../lib/sse-registry";
 
 const router = Router();
 // requireAuth for all routes except the SSE events route, which authenticates
@@ -17,19 +18,6 @@ router.use((req, res, next) => {
 // UUID v4-ish format check used to reject malformed ids cleanly (400) rather
 // than letting PostgreSQL raise a cast error.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-// In-memory SSE clients map: conversationId -> Set of {userId, res}
-const sseClients = new Map<string, Set<{ userId: string; res: any }>>();
-
-function broadcastToConversation(conversationId: string, event: object, senderUserId: string) {
-  const clients = sseClients.get(conversationId);
-  if (!clients) return;
-  const data = `data: ${JSON.stringify(event)}\n\n`;
-  for (const client of clients) {
-    // Send to all clients in the conversation (including sender for confirmation)
-    try { client.res.write(data); } catch {}
-  }
-}
 
 // GET /api/messages/conversations
 router.get("/conversations", async (req, res) => {
@@ -170,7 +158,7 @@ router.post("/conversations/:id/messages", async (req, res) => {
   };
 
   // Broadcast via SSE to all members
-  broadcastToConversation(convId, { type: "message", message: fullMsg }, userId);
+  broadcast(convId, { type: "message", message: fullMsg }, userId);
 
   res.status(201).json(fullMsg);
 });
@@ -203,9 +191,7 @@ router.get("/conversations/:id/events", async (req, res) => {
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders();
 
-  const client = { userId, res };
-  if (!sseClients.has(convId)) sseClients.set(convId, new Set());
-  sseClients.get(convId)!.add(client);
+  registerClient(convId, userId, res);
 
   // Heartbeat every 25s
   const heartbeat = setInterval(() => {
@@ -214,8 +200,7 @@ router.get("/conversations/:id/events", async (req, res) => {
 
   req.on("close", () => {
     clearInterval(heartbeat);
-    sseClients.get(convId)?.delete(client);
-    if (sseClients.get(convId)?.size === 0) sseClients.delete(convId);
+    unregisterClient(convId, userId, res);
   });
 });
 

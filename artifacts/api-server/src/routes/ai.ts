@@ -8,6 +8,7 @@ import {
   aiDailyTipsTable,
 } from "@workspace/db/schema";
 import { requireAuth } from "../lib/auth";
+import { logger } from "../lib/logger";
 import { isValidUuid } from "../lib/uuid";
 import { awardXpInTransaction, isValidAttribute } from "../lib/progression";
 import {
@@ -95,7 +96,16 @@ async function enhanceTaskWording(texts: string[]): Promise<string[]> {
     return arr.map((s, i) =>
       typeof s === "string" && s.trim() ? s.trim().slice(0, 300) : texts[i],
     );
-  } catch {
+  } catch (err) {
+    logger.warn(
+      {
+        event: "external.groq.failed",
+        category: "external_service",
+        operation: "enhanceTaskWording",
+        err: err instanceof Error ? err : new Error(String(err)),
+      },
+      "AI task-wording enhancement failed — using deterministic text",
+    );
     return texts;
   }
 }
@@ -121,7 +131,16 @@ async function enhanceTipWording(tip: string): Promise<string> {
     );
     const raw = completion.choices[0]?.message?.content ?? "";
     return raw.trim() ? raw.trim().slice(0, 500) : tip;
-  } catch {
+  } catch (err) {
+    logger.warn(
+      {
+        event: "external.groq.failed",
+        category: "external_service",
+        operation: "enhanceTipWording",
+        err: err instanceof Error ? err : new Error(String(err)),
+      },
+      "AI tip-wording enhancement failed — using deterministic tip",
+    );
     return tip;
   }
 }
@@ -433,8 +452,19 @@ Your coaching style:
 
     res.json({ message: aiResponse, id: savedMsg.id });
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Unknown error";
-    res.status(500).json({ message: "AI coach is temporarily unavailable", error: msg });
+    // Log the external failure server-side with full context; return a generic
+    // message so internal provider details (endpoints, error text) never leak
+    // to the client.
+    logger.error(
+      {
+        event: "external.groq.failed",
+        category: "external_service",
+        operation: "chat",
+        err: e instanceof Error ? e : new Error(String(e)),
+      },
+      "AI chat failed",
+    );
+    res.status(503).json({ message: "AI coach is temporarily unavailable" });
   }
 });
 

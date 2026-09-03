@@ -7,6 +7,7 @@
  */
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
+import { logger } from "./logger";
 import {
   xpTransactionsTable,
   userLevelsTable,
@@ -156,6 +157,26 @@ async function _awardXpCore(tx: DbOrTx, params: AwardXpParams): Promise<AwardXpR
     attributeResults.push({ attribute: attr.attribute, newValue: attrRow.currentValue });
   }
 
+  // Economy observability: emit a structured record of every legitimate XP
+  // award so the XP ledger can be reconciled (sum of awards == totalXp) and a
+  // "reward applied twice" / "XP decreased" anomaly is detectable from logs.
+  logger.info(
+    {
+      event: "xp.awarded",
+      category: "progression",
+      userId,
+      sourceType,
+      sourceId,
+      idempotencyKey,
+      xp,
+      totalXpAfter: levelRow?.totalXp,
+      level: levelRow?.currentLevel,
+      levelUp,
+      attributeCount: attributeResults.length,
+    },
+    "XP awarded",
+  );
+
   return { transaction, levelRow: levelRow ? { ...levelRow, levelUp } : null, attributeResults, alreadyAwarded: false };
 }
 
@@ -193,6 +214,21 @@ export async function awardXpInTransaction(tx: DbOrTx, params: AwardXpParams): P
       .where(eq(xpTransactionsTable.idempotencyKey, idempotencyKey))
       .limit(1);
     if (existing) {
+      // Replay/duplicate detection telemetry: a protected mutation was re-run
+      // and the idempotency key already exists. This lets an operator answer
+      // "did the user do this twice, or did the system process it twice?"
+      // without reconstructing the database by hand.
+      logger.warn(
+        {
+          event: "xp.award.replayed",
+          category: "idempotency",
+          userId: params.userId,
+          sourceType: params.sourceType,
+          sourceId: params.sourceId,
+          idempotencyKey,
+        },
+        "XP award skipped — idempotency key already exists (replay/duplicate)",
+      );
       return { transaction: existing, levelRow: null, attributeResults: [], alreadyAwarded: true };
     }
   }

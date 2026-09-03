@@ -14,6 +14,7 @@
  * reaches the cap, so normal gameplay is never throttled.
  */
 import rateLimit, { type Options } from "express-rate-limit";
+import { logger } from "./logger";
 
 export interface MutationLimiterEnv {
   windowMs: number;
@@ -42,6 +43,22 @@ export function makeMutationLimiter(overrides?: Partial<MutationLimiterEnv>): Re
     keyGenerator: (req) => {
       const uid = (req as unknown as { user?: { sub?: string } }).user?.sub;
       return uid ?? "unauthenticated";
+    },
+    // Rate-limit observability: emit a structured, safely-anonymized rejection
+    // event so an operator can distinguish a rate-limit spike from other 4xx.
+    // No user id / request identifier is logged — only the limiter category —
+    // so the log can never be abused to enumerate accounts.
+    handler: (req, res, _next, _options) => {
+      logger.warn(
+        {
+          event: "rate_limit.rejected",
+          category: "rate_limit",
+          method: req.method,
+          path: (req.originalUrl ?? req.path).split("?")[0],
+        },
+        "Rate limit exceeded",
+      );
+      res.status(429).json({ message: "Too many requests — please slow down" });
     },
   };
 
