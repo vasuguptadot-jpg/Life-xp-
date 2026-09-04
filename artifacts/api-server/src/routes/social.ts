@@ -45,8 +45,23 @@ router.get("/users/:id", async (req, res) => {
 
   if (!user) { res.status(404).json({ message: "User not found" }); return; }
 
+  // Select only the PUBLIC profile fields. The full user_profiles row also
+  // contains sensitive PII (date_of_birth, activity_level) that the public
+  // profile UI never renders — returning the whole row would leak a user's
+  // precise date of birth and activity level to any authenticated account.
+  // (STAGE 23 finding C-1.)
   const [[profile], [levelRow]] = await Promise.all([
-    db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, id)).limit(1),
+    db
+      .select({
+        avatarUrl: userProfilesTable.avatarUrl,
+        bio: userProfilesTable.bio,
+        age: userProfilesTable.age,
+        weightKg: userProfilesTable.weightKg,
+        heightCm: userProfilesTable.heightCm,
+      })
+      .from(userProfilesTable)
+      .where(eq(userProfilesTable.userId, id))
+      .limit(1),
     db.select().from(userLevelsTable).where(eq(userLevelsTable.userId, id)).limit(1),
   ]);
 
