@@ -1,5 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
+import { hostname } from "node:os";
 import * as schema from "./schema";
 
 const { Pool } = pg;
@@ -28,7 +29,7 @@ pool.on("error", (err) => {
       level: 50, // error
       time: Date.now(),
       pid: process.pid,
-      hostname: process.env.HOSTNAME ?? "",
+      hostname: hostname(),
       event: "database.pool.error",
       category: "database",
       message: err?.message ?? String(err),
