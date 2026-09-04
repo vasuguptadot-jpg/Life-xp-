@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { Router } from "express";
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import rateLimit from "express-rate-limit";
 import { db } from "@workspace/db";
@@ -132,6 +132,14 @@ router.post("/signup", authLimiter, async (req, res) => {
   res.status(201).json({ user, message: "Account created successfully" });
 });
 
+// Dummy cost-12 hash. When a signin targets an account that does not exist (or
+// is inactive), we still run one bcrypt compare against this fixed hash so the
+// response latency matches the wrong-password path. Without this, a
+// nonexistent account returns 401 in ~2ms while an existing account takes
+// ~250ms, a clear account-enumeration timing oracle.
+const DUMMY_PASSWORD_HASH =
+  "$2b$12$OLApatjPsiZG1ZnhojRhkeEjOTixhU.AQLwqDHKS1zOyDg4hdkxja";
+
 // ── POST /api/auth/signin ──────────────────────────────────────────────────────
 router.post("/signin", authLimiter, async (req, res) => {
   const { email, password } = req.body ?? {};
@@ -151,6 +159,11 @@ router.post("/signin", authLimiter, async (req, res) => {
     .limit(1);
 
   if (!user || !user.isActive) {
+    // Equalize timing with the wrong-password path: burn one bcrypt compare so
+    // signin does not reveal whether an email is registered (or active).
+    if (typeof password === "string") {
+      await bcrypt.compare(password, DUMMY_PASSWORD_HASH);
+    }
     res.status(401).json({ message: "Invalid credentials" });
     return;
   }

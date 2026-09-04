@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 import request from "supertest";
 import express from "express";
 
