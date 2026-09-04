@@ -23,8 +23,13 @@ maybe("UUID validation — malformed :id returns 400 (not 500)", () => {
     quests = (await import("../routes/quests")).default;
     messages = (await import("../routes/messages")).default;
     ai = (await import("../routes/ai")).default;
+    // requireAuth now verifies the account exists (Stage 24 D-2), so a real
+    // user must back the token for these UUID-validation probes.
+    const { db } = await import("@workspace/db");
+    const { usersTable } = await import("@workspace/db/schema");
+    const [u] = await db.insert(usersTable).values({ email: `uuid-${Date.now()}@example.com`, username: `uuid${Date.now()}`, passwordHash: "x" }).returning();
     const { signToken } = await import("../lib/auth");
-    token = signToken({ sub: "00000000-0000-0000-0000-000000000001", email: "uuid@example.com" });
+    token = signToken({ sub: u.id, email: u.email });
   });
 
   function app() {

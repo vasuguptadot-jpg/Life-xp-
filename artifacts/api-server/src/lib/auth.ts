@@ -1,5 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { eq } from "drizzle-orm";
+import { db } from "@workspace/db";
+import { usersTable } from "@workspace/db/schema";
 import { logger } from "./logger";
 
 const JWT_SECRET = process.env.SESSION_SECRET;
@@ -26,7 +29,7 @@ export function verifyToken(token: string): JwtPayload {
   return jwt.verify(token, JWT_SECRET!) as JwtPayload;
 }
 
-export function requireAuth(req: Request, res: Response, next: NextFunction) {
+export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const header = req.headers.authorization;
   if (!header?.startsWith("Bearer ")) {
     logger.info(
@@ -44,7 +47,6 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   try {
     const token = header.slice(7);
     req.user = verifyToken(token);
-    next();
   } catch {
     logger.info(
       {
@@ -56,5 +58,32 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
       "Authentication failed — invalid or expired token",
     );
     res.status(401).json({ message: "Invalid or expired token" });
+    return;
   }
+
+  // A stateless JWT outlives account deletion (up to its 15-minute lifetime).
+  // Verify the account still exists (and is active) so a deleted identity can
+  // neither authenticate nor surface a foreign-key-violation 500 when it
+  // attempts a mutation. (STAGE 24 finding D-2.)
+  const [account] = await db
+    .select({ id: usersTable.id, isActive: usersTable.isActive })
+    .from(usersTable)
+    .where(eq(usersTable.id, req.user.sub))
+    .limit(1);
+
+  if (!account || !account.isActive) {
+    logger.info(
+      {
+        event: "auth.failed",
+        category: "authentication",
+        reason: "account_deleted_or_inactive",
+        path: (req.originalUrl ?? req.path).split("?")[0],
+      },
+      "Authentication failed — account no longer exists",
+    );
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  next();
 }

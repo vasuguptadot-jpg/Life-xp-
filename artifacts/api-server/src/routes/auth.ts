@@ -84,10 +84,21 @@ router.post("/signup", authLimiter, async (req, res) => {
     return;
   }
 
+  // Email contract (STAGE 24 — C-2 fix): must be a non-empty string, ≤ 254
+  // chars, matching a basic `local@domain.tld` shape. Normalized to
+  // lowercased-trimmed before storage so "Foo@X.com" and "foo@x.com" cannot
+  // create duplicate accounts. Rejection is deterministic (400) and pollutes
+  // nothing.
+  const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail) || normalizedEmail.length > 254) {
+    res.status(400).json({ message: "A valid email address is required" });
+    return;
+  }
+
   const existing = await db
     .select({ id: usersTable.id })
     .from(usersTable)
-    .where(eq(usersTable.email, email))
+    .where(eq(usersTable.email, normalizedEmail))
     .limit(1);
 
   if (existing.length > 0) {
@@ -110,7 +121,7 @@ router.post("/signup", authLimiter, async (req, res) => {
 
   const [user] = await db
     .insert(usersTable)
-    .values({ email, username, passwordHash })
+    .values({ email: normalizedEmail, username, passwordHash })
     .returning({
       id: usersTable.id,
       email: usersTable.email,
@@ -130,10 +141,13 @@ router.post("/signin", authLimiter, async (req, res) => {
     return;
   }
 
+  // Match signup's normalization so lookup is case/whitespace-insensitive.
+  const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+
   const [user] = await db
     .select()
     .from(usersTable)
-    .where(eq(usersTable.email, email))
+    .where(eq(usersTable.email, normalizedEmail))
     .limit(1);
 
   if (!user || !user.isActive) {

@@ -19,8 +19,13 @@ maybe("nonexistent-target validation — valid UUID, no record -> 404 (not 500)"
     process.env.DATABASE_URL = TEST_DB_URL;
     social = (await import("../routes/social")).default;
     messages = (await import("../routes/messages")).default;
+    // requireAuth now verifies the account exists (Stage 24 D-2), so a real
+    // user must back the token; the ghost TARGET is still a nonexistent UUID.
+    const { db } = await import("@workspace/db");
+    const { usersTable } = await import("@workspace/db/schema");
+    const [u] = await db.insert(usersTable).values({ email: `ghost-${Date.now()}@example.com`, username: `ghost${Date.now()}`, passwordHash: "x" }).returning();
     const { signToken } = await import("../lib/auth");
-    token = signToken({ sub: "00000000-0000-0000-0000-000000000001", email: "ghost@example.com" });
+    token = signToken({ sub: u.id, email: u.email });
   });
 
   function app() {

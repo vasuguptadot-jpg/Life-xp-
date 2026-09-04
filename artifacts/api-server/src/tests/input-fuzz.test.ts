@@ -90,20 +90,17 @@ maybe("STAGE 21 — input fuzz (Part 5)", () => {
     expect(after.length).toBe(before.length);
   });
 
-  it("FINDING (C): signup does not validate email type/format — a non-string email is silently accepted", async () => {
-    // This documents a real (non-speculative) input-validation gap: the signup
-    // handler only checks truthiness of `email`, so a non-string value is
-    // coerced to text and stored. It does NOT bypass auth or award XP, but the
-    // stored identifier is garbage. Classified C (product/robustness risk),
-    // recorded here rather than "fixed" speculatively (no product email spec
-    // exists to validate against).
+  it("FINDING (C, FIXED in Stage 24): signup rejects a non-string email with 400", async () => {
+    // Stage 21 documented that signup accepted a non-string email (coerced to
+    // text and stored). Stage 24 fixed it: email is now validated as a string.
     const numericEmail = 2_000_000_000 + (Date.now() % 1_000_000_000); // unique per run
+    const username = `fznum${Date.now()}`;
     const res = await request(app).post("/api/auth/signup").send({
-      email: numericEmail, username: `fznum${Date.now()}`, password: "password123",
+      email: numericEmail, username, password: "password123",
     });
-    expect(res.status).toBe(201); // accepted today — this is the gap
-    const rows = await db.select().from(schema.usersTable).where(eq(schema.usersTable.email, String(numericEmail)));
-    expect(rows.length).toBe(1);
+    expect(res.status).toBe(400); // rejected — fixed
+    const rows = await db.select().from(schema.usersTable).where(eq(schema.usersTable.username, username));
+    expect(rows.length).toBe(0); // no polluted row
   });
 
   it("malformed UUIDs are rejected as 400 (never 500) across mutation endpoints", async () => {

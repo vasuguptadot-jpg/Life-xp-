@@ -120,6 +120,17 @@ router.patch("/me/profile-extra", async (req, res) => {
 // DELETE /api/users/me
 router.delete("/me", async (req, res) => {
   const userId = req.user!.sub;
+
+  // The ON DELETE CASCADE on post_likes.user_id removes this user's likes, but
+  // posts.likes_count is a denormalized counter that the cascade does NOT
+  // touch. Reconcile it first so deleting an account cannot leave other users'
+  // posts with an inflated like count that disagrees with the post_likes
+  // table. (STAGE 24 finding D-1.)
+  await db.execute(sql`
+    UPDATE posts SET likes_count = GREATEST(likes_count - 1, 0)
+    WHERE id IN (SELECT post_id FROM post_likes WHERE user_id = ${userId})
+  `);
+
   const [deleted] = await db.delete(usersTable).where(eq(usersTable.id, userId)).returning({ id: usersTable.id });
   if (!deleted) { res.status(404).json({ message: "User not found" }); return; }
   res.json({ success: true, message: "Account deleted" });

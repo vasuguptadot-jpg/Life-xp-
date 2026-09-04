@@ -227,28 +227,21 @@ maybe("STAGE 23 — adversarial security / trust-boundary audit", () => {
       expect(r.status).toBe(400);
     });
 
-    it("FINDING (C-2): signup accepts non-string / malformed / unbounded emails", async () => {
-      // Known Stage 21 finding (C), re-verified live: signup does not validate
-      // email type, format, or length. Non-string values are coerced to text and
-      // stored as garbage ("[object Object]"), malformed strings are accepted,
-      // and 500-character emails are accepted. No auth bypass / XP / cross-user
-      // consequence — it is a data-integrity/robustness gap, hence C not D.
+    it("FINDING (C-2, FIXED in Stage 24): signup rejects non-string / malformed / unbounded emails", async () => {
+      // Stage 23 documented C-2: signup accepted non-string/malformed/unbounded
+      // emails. Stage 24 fixed it — email is now a validated, normalized string.
       const un = (p: string) => (p + suffix.replace(/[^a-zA-Z0-9_]/g, "")).slice(0, 30);
       const objEmail = await request(app).post("/api/auth/signup").send({ email: { run: suffix }, username: un("ob"), password: "Password123!" });
-      expect(objEmail.status).toBe(201); // accepted — the gap
+      expect(objEmail.status).toBe(400); // rejected — fixed
       const malformed = await request(app).post("/api/auth/signup").send({ email: `not-an-email-${suffix}`, username: un("mf"), password: "Password123!" });
-      expect(malformed.status).toBe(201); // no format validation
+      expect(malformed.status).toBe(400); // format validated
       const huge = await request(app).post("/api/auth/signup").send({ email: "a".repeat(500) + `${suffix}@x.com`, username: un("hg"), password: "Password123!" });
-      expect(huge.status).toBe(201); // no length limit
+      expect(huge.status).toBe(400); // length capped
 
-      // EVIDENCE: the object email was coerced to a JSON string and stored.
-      const stored = await db.select().from(schema.usersTable).where(eq(schema.usersTable.username, un("ob")));
-      expect(stored.length).toBe(1);
-      expect(stored[0].email).toBe(`{"run":"${suffix}"}`);
-
-      // cleanup
+      // EVIDENCE: no polluted row was created for any rejected attempt.
       for (const u of [un("ob"), un("mf"), un("hg")]) {
-        await db.delete(schema.usersTable).where(eq(schema.usersTable.username, u));
+        const stored = await db.select().from(schema.usersTable).where(eq(schema.usersTable.username, u));
+        expect(stored.length).toBe(0);
       }
     });
   });
