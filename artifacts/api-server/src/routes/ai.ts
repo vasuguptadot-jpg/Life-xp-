@@ -10,6 +10,7 @@ import {
 import { requireAuth } from "../lib/auth";
 import { logger } from "../lib/logger";
 import { isValidUuid } from "../lib/uuid";
+import { parseLimit } from "../lib/pagination";
 import { awardXpInTransaction, isValidAttribute } from "../lib/progression";
 import {
   buildEngineState,
@@ -295,7 +296,7 @@ router.get("/life-tip", async (req, res) => {
 // ── GET /api/ai/chat/history ─────────────────────────────────────────────────
 router.get("/chat/history", async (req, res) => {
   const userId = req.user!.sub;
-  const limit = Math.min(Number(req.query.limit) || 30, 50);
+  const limit = parseLimit(req.query.limit, 30, 50);
 
   const messages = await db
     .select()

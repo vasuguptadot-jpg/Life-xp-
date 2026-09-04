@@ -2,6 +2,7 @@ import { Router } from "express";
 import { sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { requireAuth, verifyToken } from "../lib/auth";
+import { parseLimit } from "../lib/pagination";
 import { broadcast, registerClient, unregisterClient } from "../lib/sse-registry";
 
 const router = Router();
@@ -100,7 +101,7 @@ router.get("/conversations/:id/messages", async (req, res) => {
   `)).rows[0];
   if (!member) { res.status(403).json({ message: "Not a member" }); return; }
 
-  const limit = Math.min(Number(req.query.limit ?? 50), 100);
+  const limit = parseLimit(req.query.limit, 50, 100);
   const before = req.query.before as string | undefined;
 
   const rows = await db.execute(sql`

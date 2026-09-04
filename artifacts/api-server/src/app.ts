@@ -71,15 +71,37 @@ app.use(express.urlencoded({ extended: true }));
 // U+0000 with "invalid byte sequence for encoding UTF8", which would otherwise
 // surface as an unhandled 500 for any free-text field. Removing them is safe —
 // they carry no meaning in JSON strings.
+//
+// The traversal is iterative (explicit stack) rather than recursive: a deeply
+// nested JSON body (e.g. ~5k levels) previously overflowed the call stack with
+// `RangeError: Maximum call stack size exceeded`, surfacing as an unhandled 500.
 function stripNullBytes(value: unknown): unknown {
-  if (typeof value === "string") return value.replace(/\u0000/g, "");
-  if (Array.isArray(value)) return value.map(stripNullBytes);
-  if (value && typeof value === "object") {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      out[k] = stripNullBytes(v);
+  type Frame = { value: unknown; key?: string; parent?: Record<string, unknown> };
+  const stack: Frame[] = [{ value }];
+  while (stack.length > 0) {
+    const frame = stack.pop()!;
+    const v = frame.value;
+    if (typeof v === "string") {
+      if (frame.parent && frame.key !== undefined) {
+        frame.parent[frame.key] = v.replace(/\u0000/g, "");
+      }
+      continue;
     }
-    return out;
+    if (Array.isArray(v)) {
+      for (let i = 0; i < v.length; i++) {
+        const child = v[i];
+        if (typeof child === "string" || (child && typeof child === "object")) {
+          stack.push({ value: child, key: String(i), parent: v as unknown as Record<string, unknown> });
+        }
+      }
+    } else if (v && typeof v === "object") {
+      const rec = v as Record<string, unknown>;
+      for (const [k, child] of Object.entries(rec)) {
+        if (typeof child === "string" || (child && typeof child === "object")) {
+          stack.push({ value: child, key: k, parent: rec });
+        }
+      }
+    }
   }
   return value;
 }

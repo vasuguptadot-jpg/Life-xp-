@@ -5,6 +5,7 @@ import { questTemplatesTable, userQuestsTable } from "@workspace/db/schema";
 import { requireAuth } from "../lib/auth";
 import { awardXpInTransaction, isValidAttribute, type AttributeAward } from "../lib/progression";
 import { isValidUuid } from "../lib/uuid";
+import { parseLimit } from "../lib/pagination";
 import { makeMutationLimiter } from "../lib/rate-limit";
 
 const router = Router();
@@ -44,7 +45,7 @@ router.get("/catalogue", async (_req, res) => {
 // GET /api/quests/recommended — quests not yet active for user
 router.get("/recommended", async (req, res) => {
   const userId = req.user!.sub;
-  const limit = Number(req.query.limit) || 5;
+  const limit = parseLimit(req.query.limit, 5, 20);
 
   const active = await db
     .select({ questTemplateId: userQuestsTable.questTemplateId })

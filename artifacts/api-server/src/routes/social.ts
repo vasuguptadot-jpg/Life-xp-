@@ -6,6 +6,7 @@ import { requireAuth } from "../lib/auth";
 import { logger } from "../lib/logger";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { isValidUuid } from "../lib/uuid";
+import { parseLimit, parseOffset } from "../lib/pagination";
 import multer from "multer";
 
 const router = Router();
@@ -16,7 +17,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 150
 
 // ── Leaderboard ──────────────────────────────────────────────────────────────
 router.get("/leaderboard", async (req, res) => {
-  const limit = Math.min(Number(req.query.limit ?? 50), 100);
+  const limit = parseLimit(req.query.limit, 50, 100);
   const rows = await db.execute(sql`
     SELECT u.id, u.username, u.display_name as "displayName",
            COALESCE(ul.total_xp, 0) as "totalXp",
@@ -104,8 +105,8 @@ router.delete("/users/:id/follow", async (req, res) => {
 router.get("/posts", async (req, res) => {
   const tag = req.query.tag as string | undefined;
   const postType = req.query.type as string | undefined; // 'post' | 'clip'
-  const limit = Math.min(Number(req.query.limit ?? 30), 100);
-  const offset = Number(req.query.offset ?? 0);
+  const limit = parseLimit(req.query.limit, 30, 100);
+  const offset = parseOffset(req.query.offset);
   const userId = req.user!.sub;
 
   let whereClause = sql`1=1`;
@@ -131,7 +132,7 @@ router.get("/posts", async (req, res) => {
 // AI-personalized feed
 router.get("/posts/personalized", async (req, res) => {
   const userId = req.user!.sub;
-  const limit = Math.min(Number(req.query.limit ?? 30), 50);
+  const limit = parseLimit(req.query.limit, 30, 50);
 
   // Get user's active quests/goals for context
   const userGoals = await db.execute(sql`

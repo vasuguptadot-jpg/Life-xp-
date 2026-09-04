@@ -23,7 +23,13 @@ export const postsTable = pgTable(
     postType: text("post_type").default("post").notNull(), // 'post' | 'clip'
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (t) => [index("posts_user_id_idx").on(t.userId)],
+  (t) => [
+    index("posts_user_id_idx").on(t.userId),
+    // Feed query orders by created_at DESC LIMIT n; without this the planner
+    // must seq-scan + sort every row (O(n log n)). Measured: 20.2ms → 0.34ms
+    // at 20k posts (Stage 26 P7/P23).
+    index("posts_created_at_idx").on(t.createdAt),
+  ],
 );
 
 // ── Post likes ───────────────────────────────────────────────────────────────

@@ -15,6 +15,7 @@ import {
   attributeHistoryTable,
 } from "@workspace/db/schema";
 import { requireAuth } from "../lib/auth";
+import { parseLimit } from "../lib/pagination";
 import { composeDailyPlan } from "../lib/life-engine";
 
 const router = Router();
@@ -48,7 +49,7 @@ router.get("/summary", async (req, res) => {
 // GET /api/progression/attribute-history
 router.get("/attribute-history", async (req, res) => {
   const userId = req.user!.sub;
-  const limit = Math.min(Number(req.query.limit) || 50, 200);
+  const limit = parseLimit(req.query.limit, 50, 200);
 
   const history = await db
     .select()
