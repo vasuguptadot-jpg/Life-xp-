@@ -368,13 +368,13 @@ maybe("STAGE 24 — data integrity, privacy & lifecycle audit", () => {
       await expect(db.insert(schema.userLevelsTable).values({ userId: bogus, totalXp: 1, currentLevel: 1 })).rejects.toThrow();
     });
 
-    it("negative XP transaction is stored at DB level (no CHECK) — documented residual", async () => {
-      // The application never writes negative XP, but the DB schema has no
-      // CHECK constraint, so an out-of-band write CAN create one. Documented as
-      // a residual (B-class) rather than silently adding a migration.
-      const [row] = await db.insert(schema.xpTransactionsTable).values({ userId: userA, amount: -100, sourceType: "CORRUPTION_PROBE" }).returning();
-      expect(row.amount).toBe(-100); // evidence: no CHECK constraint exists
-      await db.delete(schema.xpTransactionsTable).where(eq(schema.xpTransactionsTable.id, row.id));
+    it("negative XP transaction is now rejected by the DB CHECK (Stage 25 fix)", async () => {
+      // Stage 24 documented this as a residual B (no CHECK on amount). Stage 25
+      // added xp_transactions_amount_nonnegative, so an out-of-band negative
+      // write is now rejected by PostgreSQL itself.
+      await expect(
+        db.insert(schema.xpTransactionsTable).values({ userId: userA, amount: -100, sourceType: "CORRUPTION_PROBE" }),
+      ).rejects.toThrow();
     });
   });
 
