@@ -21,18 +21,19 @@
 
 ---
 
-## Part 0 — Environment reset & baseline reconstruction
+## Part 0 — Environment reset & baseline recovery
 
 The environment was reset between stages. On entry, `git rev-parse HEAD` was
-`25cbdf2` (the base `main` commit), the Stage 26.1 commit `293cd6f` no longer
-existed in the (fresh) clone, and the remote had no `arena/*` branch. The full
-Stage 20–26.1 working tree survived as uncommitted changes (native bcrypt auth,
-life-engine, observability, security/data-integrity suites, migrations, docs).
+`25cbdf2` (the base `main` commit) and the local clone had lost the stage
+history; the full Stage 20–26.1 working tree survived as uncommitted changes
+(native bcrypt auth, life-engine, observability, security/data-integrity
+suites, migrations, docs).
 
-Reconstruction: the working tree was committed as `99f13e3` ("Reconstruct
-Stage 26.1 baseline"), verified to contain the Stage 26.1 code (`bcrypt` import,
-`$2b$12$` native hashing, DUMMY_PASSWORD_HASH enumeration fix, 44 test files).
-The reconstructed baseline was then re-verified from scratch.
+Recovery: the authoritative Stage 26.1 commit `293cd6f` was fetched from the
+remote (it was never actually lost — the fresh clone simply lacked the ref).
+The surviving working tree was verified to be byte-for-byte identical to
+`293cd6f` (`git diff --stat 293cd6f <reconstruction>` empty), then the baseline
+was re-verified from scratch on top of the authentic history.
 
 ## Part 1 — Clean environment & baseline (re-provisioned)
 
@@ -43,7 +44,7 @@ The reconstructed baseline was then re-verified from scratch.
 | PostgreSQL | 18.4 (embedded, 127.0.0.1:5434) |
 | bcrypt | 6.0.0 (native, prebuilt linux-x64) — bcryptjs ABSENT |
 | pg | 8.22.0 |
-| Commit (reconstructed baseline) | `99f13e3` |
+| Commit (baseline) | `293cd6f` (Stage 26.1) |
 | Branch | `arena/01a05271-life-xp` |
 
 Provisioning steps executed: `pnpm install` (re-hydrated the

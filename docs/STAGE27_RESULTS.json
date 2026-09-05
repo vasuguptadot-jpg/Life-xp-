@@ -4,7 +4,7 @@
   "classification": "YELLOW",
   "decision": "YELLOW — production-ready CONDITIONAL on deployment prerequisites (application code fully verified; browser UX, live Groq, and reverse-proxy topology UNVERIFIED in this environment)",
   "decision_phrase": "STAGE 27 decision: YELLOW — the application is production-ready: 447/447 tests pass, the complete user lifecycle, cross-user isolation, XP economy (ledger SUM == total_xp, no negative/duplicate/client-controlled rewards), data integrity (likes_count, orphans, level formula), the AI trust boundary (deterministic engines + graceful 503 fallback), security (no auth bypass, no IDOR, no SQLi/XSS, no secret leakage, timing-enumeration oracle closed), observability (X-Request-Id + structured events), DB failure/recovery (readiness 503→200, pool auto-reconnect, no crash), concurrency (exactly-one mutation, no duplicate XP), performance (auth never starves unrelated users), and backup/restore (23 tables + XP ledger round-trip) are all verified by executed evidence. GREEN is withheld because three deployment-dependent surfaces remain UNVERIFIED in this environment: real-browser UX (no Chromium), live Groq AI provider (no GROQ_API_KEY), and the reverse-proxy trust topology (trust proxy=1 vs production proxy), plus documented infrastructure-owned prerequisites (backup/PITR/RPO/RTO, object-storage sidecar, TLS/security headers at the proxy).",
-  "commit": "99f13e3",
+  "commit": "293cd6f",
   "environment": {
     "node": "v22.22.3",
     "pnpm": "10.34.5",
@@ -12,10 +12,10 @@
     "bcrypt": "6.0.0 (native; bcryptjs absent)",
     "pg": "8.22.0",
     "branch": "arena/01a05271-life-xp",
-    "note": "Environment was reset; Stage 26.1 commit 293cd6f was lost and the working tree was reconstructed as 99f13e3 and re-verified from scratch."
+    "note": "Environment was reset (fresh clone at base 25cbdf2 with the Stage 20-26.1 working tree as uncommitted changes). The authoritative Stage 26.1 commit 293cd6f was recovered from the remote and re-verified from scratch (deps re-installed, embedded PostgreSQL re-provisioned, migrations re-applied)."
   },
   "baseline": {
-    "commit": "99f13e3",
+    "commit": "293cd6f",
     "migrations_applied": 4,
     "tables": 23,
     "archetypes_seeded": 7,

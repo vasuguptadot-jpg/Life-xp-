@@ -78,8 +78,9 @@ deployment issue — none were observed.
 
 ## Environment note
 
-The environment was reset before this stage; the Stage 26.1 commit `293cd6f`
-was lost. The Stage 26.1 working tree was reconstructed as commit `99f13e3` and
-re-verified from scratch (447/447 tests, typecheck, build, secret scan,
-migrations, and the native-bcrypt auth hardening all confirmed present and
-correct).
+The environment was reset before this stage (fresh clone at base `25cbdf2` with
+the Stage 20–26.1 working tree as uncommitted changes). The authoritative
+Stage 26.1 commit `293cd6f` was recovered from the remote, the surviving tree
+was confirmed byte-for-byte identical to it, and the baseline was re-verified
+from scratch (447/447 tests, typecheck, build, secret scan, migrations, and the
+native-bcrypt auth hardening all confirmed present and correct).
