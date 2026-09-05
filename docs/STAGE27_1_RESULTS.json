@@ -1,0 +1,135 @@
+{
+  "stage": "STAGE27.1",
+  "title": "Final Release Verification (closing Stage 27 UNVERIFIED gaps)",
+  "classification": "YELLOW",
+  "decision": "YELLOW — production-ready CONDITIONAL. Real-browser acceptance is now VERIFIED (full lifecycle + real XP mutations + double-click idempotency in Chromium 149, both viewports). GREEN remains withheld for three reasons: (1) live Groq AI is still UNVERIFIED (no GROQ_API_KEY in this environment), (2) the reverse-proxy trust topology (trust proxy=1 vs production XFF) remains a deployment prerequisite that cannot be demonstrated here, and (3) real-browser error auditing surfaced ONE pre-existing B-class functional defect that the Stage 27 code-only audit could not see: the object-storage media-serving endpoint (/api/social/objects/*) is gated behind requireAuth, so <img>/<video> tags (which cannot attach an Authorization header) can never render uploaded media — even for visibility:public objects, which the ACL model explicitly intends to serve unauthenticated.",
+  "commit": "23a198bf41b28373004ae08d1451dbcbeaab6ed7",
+  "branch": "arena/01a05271-life-xp",
+  "environment": {
+    "node": "v22.22.3",
+    "pnpm": "10.34.5",
+    "postgres": "18.4 (embedded, 127.0.0.1:5434)",
+    "bcrypt": "6.0.0 (native; bcryptjs absent)",
+    "pg": "8.22.0",
+    "browser": "Chromium 149 (@sparticuz/chromium@149.0.0 + puppeteer-core@25.9.0; headless shell; LD_LIBRARY_PATH=/tmp/al2023/lib for NSS/nspr shared libs)",
+    "groq": "GROQ_API_KEY UNSET (live provider unavailable)",
+    "branch_note": "Authoritative release candidate 23a198b (ancestor 293cd6f) recovered from remote after environment reset; working tree clean (no application code changes in this pass)."
+  },
+  "baseline": {
+    "commit": "23a198bf41b28373004ae08d1451dbcbeaab6ed7",
+    "migrations_applied": 4,
+    "tables": 23,
+    "archetypes_seeded": 7,
+    "full_suite": "447/447 (44 files)",
+    "typecheck": "PASS",
+    "production_build": "PASS (api-server + web; web requires PORT/BASE_PATH env)",
+    "secret_scan": "clean (placeholders only)"
+  },
+  "browser_mobile": {
+    "result": "PASS",
+    "viewport": "390x844",
+    "checks_passed": 18,
+    "checks_total": 19,
+    "lifecycle": "signup -> onboarding (5 steps) -> dashboard -> quests -> profile -> logout -> login -> refresh x5 -> leaderboard/feed nav: ALL PASS",
+    "daily_task_xp": "xp 0 -> 25 (+25) exactly once",
+    "double_click_idempotency": "PASS: two synchronous clicks on one task produced a single +20 award (delta == single reward, not 2x); corroborated by API log: 2x POST /complete on same task, 1x xp.awarded event",
+    "quest_xp": "assign -> Log Progress (target=1 auto-completes) -> +40 XP; delta == advertised card value",
+    "error_audit": "1 real finding (media 401 on /api/social/objects/*); 0 pageerror; 0 http5xx; 0 non-navigation requestfailed; ~25 navigation-aborts (harness artifact from page.goto/reload cancelling in-flight fetches); 12 font loads blocked"
+  },
+  "browser_desktop": {
+    "result": "PASS",
+    "viewport": "1440x900",
+    "checks_passed": 18,
+    "checks_total": 19,
+    "lifecycle": "identical full lifecycle: ALL PASS",
+    "daily_task_xp": "xp 0 -> 25 (+25) exactly once",
+    "double_click_idempotency": "PASS (single +20 award)",
+    "quest_xp": "assign -> complete -> +40 XP; delta == advertised",
+    "error_audit": "1 real finding (media 401); 0 pageerror; 0 http5xx; 0 non-navigation requestfailed"
+  },
+  "browser_errors": {
+    "pageerror": 0,
+    "http500": 0,
+    "uncaught_exceptions": 0,
+    "requestfailed_non_navigation": 0,
+    "real_findings": 1,
+    "real_finding": "B-class: GET /api/social/objects/* returns 401 (missing_bearer_header) when referenced by <img>/<video> tags — see findings F-27.1-01.",
+    "note": "ERR_CONNECTION_CLOSED events are harness navigation aborts (browser cancelling in-flight fetches on page.goto/reload), not server errors; zero 5xx observed in API server logs across the full run."
+  },
+  "groq_live": {
+    "result": "UNVERIFIED",
+    "reason": "GROQ_API_KEY is unset in this environment; no live provider call could be executed. Per anti-gaming rules, live Groq is NOT marked PASS."
+  },
+  "groq_failure": {
+    "no_key_path": "VERIFIED",
+    "no_key_chat": "POST /api/ai/chat -> 503 {\"message\":\"AI coach is not configured. Add GROQ_API_KEY to enable.\"} (graceful, structured, no key leak, no crash)",
+    "no_key_deterministic": "GET /api/ai/daily-tasks -> 200 (5 deterministic tasks); GET /api/ai/life-tip -> 200 (deterministic tip); GET /api/ai/goals -> 200",
+    "live_failure_path": "UNVERIFIED (cannot invalidate a real key without a key; the structured 503 handler at ai.ts:468 is unit-covered)"
+  },
+  "production_configuration": {
+    "jwt_secret": "SESSION_SECRET required at startup (fail-fast); present",
+    "db_config": "DATABASE_URL required at startup; connectivity verified before listen",
+    "health": "/healthz (liveness) 200 and /readyz (DB readiness) 200/503 — both exercised in failure-recovery",
+    "rate_limiting": "authLimiter 10/15min per IP (429 observed and verified under flood); mutationLimiter 120/10min per user; refreshLimiter 30/15min",
+    "graceful_shutdown": "SIGTERM clean exit (no request-drain handler — documented LOW, F-27-05)",
+    "logging": "structured JSON (pino), X-Request-Id, structured auth.failed / rate_limit.rejected / readiness.failed / xp.awarded events",
+    "cors": "production restricted to CORS_ORIGINS — deployment prerequisite",
+    "https": "TLS termination at reverse proxy — deployment prerequisite",
+    "proxy_xff": "trust proxy=1 (single hop) — requires reverse proxy that overwrites X-Forwarded-For; topology not demonstrable here (F-27-01)",
+    "object_storage": "Replit GCS sidecar + PUBLIC_OBJECT_SEARCH_PATHS/PRIVATE_OBJECT_DIR — deployment prerequisite (F-27-09), PLUS the B-class media-serving defect (F-27.1-01)",
+    "groq_config": "feature-specific; graceful 503 when unset (verified)"
+  },
+  "security": {
+    "result": "PASS",
+    "evidence": "full 447-test suite (incl. adversarial auth/authz/IDOR/SQLi/XSS/XP-tamper/timing suites) passes; rate limiting verified live (429 after threshold); timing-enumeration dummy-hash intact (auth.ts DUMMY_PASSWORD_HASH); malformed-UUID handling intact; secret scan clean; error leakage none observed"
+  },
+  "performance": {
+    "result": "PASS",
+    "C8": { "signin_p50_ms": 982, "signin_max_ms": 1058, "healthz_p50_ms": 18, "healthz_max_ms": 25 },
+    "note": "8 concurrent cost-12 bcrypt signins + interleaved healthz: healthz stays <= 25ms (no event-loop starvation — native bcrypt runs in the libuv threadpool, not the JS event loop). Consistent with Stage 27 native-bcrypt baseline (C8 signin p50 1102ms, healthz <= 28ms)."
+  },
+  "data_integrity": {
+    "result": "PASS",
+    "xp_ledger_mismatch": 0,
+    "negative_xp_transactions": 0,
+    "duplicate_idempotency_keys": 0,
+    "orphan_xp_transactions": 0,
+    "negative_total_xp": 0,
+    "likes_count_mismatch": 0,
+    "cross_user_xp": "verified by suite (no cross-user mutation)"
+  },
+  "failure_recovery": {
+    "result": "PASS",
+    "pg_down_readyz": "503 {\"status\":\"unavailable\",\"database\":\"down\"}",
+    "pg_down_healthz": "200 (liveness unaffected)",
+    "pg_down_api": "process alive (no crash)",
+    "pg_restart_readyz": "200 {\"status\":\"ok\",\"database\":\"up\"}",
+    "data_survived": "67 users intact after WAL crash-recovery"
+  },
+  "full_regression": {
+    "result": "PASS",
+    "suite": "447/447 (44 files)",
+    "typecheck": "PASS",
+    "api_server_build": "PASS",
+    "web_build": "PASS (3.95s)",
+    "secret_scan": "clean"
+  },
+  "findings": [
+    {
+      "id": "F-27.1-01",
+      "severity": "B",
+      "description": "Object-storage media cannot be served to <img>/<video> tags: GET /api/social/objects/* is mounted behind router.use(requireAuth), and media tags cannot attach an Authorization header, so every referenced avatar/post image returns 401. The objectAcl.ts model (canAccessObject with visibility:public -> read allowed without userId) explicitly intends unauthenticated public reads, and the frontend (feed/leaderboard/profile/messages) renders media URLs with no token — confirming the auth gating is an oversight, not intent.",
+      "evidence": "Real Chromium run: GET http://127.0.0.1:5173/api/social/objectsav -> 401 missing_bearer_header (2x per viewport, on leaderboard + feed pages). API log: auth.failed reason=missing_bearer_header path=/api/social/objectsav. Root cause in social.ts: router.use(requireAuth) at line 13 precedes router.use(\"/objects\", handler) at line 311. A test-residue user (s24-...@x.com, avatar_url='av' from Stage 24) surfaced the broken <img> request; any real uploaded avatar would 401 identically. Secondary: path-contract mismatch — getObjectEntityFile requires objectPath.startsWith('/objects/') but the frontend mediaUrl() strips that prefix, so the handler would 404 even if auth passed.",
+      "root_cause": "requireAuth is applied router-wide in social.ts before the object-serving route; media tags cannot carry a Bearer token. Additionally the frontend/backend object-path contract is inconsistent.",
+      "status": "open",
+      "resolution": "NOT fixed in this pass — fixing requires (a) moving /objects before requireAuth AND (b) enforcing the ACL (public objects readable anonymously, private objects owner/group-only) in the handler, which is a security-sensitive change that cannot be end-to-end verified without the object-storage sidecar (F-27-09). This is beyond the 'final verification, no architecture changes' mandate and would risk weakening security if done unverified. Documented as a release blocker prerequisite.",
+      "regression_test": "after fix + sidecar: upload an avatar, verify <img src='/api/social/objects/...'> renders (200) unauthenticated for public objects and 403/404 for private objects; add an integration test for object ACL enforcement."
+    }
+  ],
+  "remaining_unverified": [
+    "Live Groq AI provider (no GROQ_API_KEY)",
+    "Reverse-proxy trust topology (trust proxy=1 vs production XFF overwrite)"
+  ],
+  "final_decision": "YELLOW",
+  "production_ready": "CONDITIONAL"
+}
