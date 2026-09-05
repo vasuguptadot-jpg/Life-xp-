@@ -1,0 +1,38 @@
+{
+  "stage": 6,
+  "recorded_at": "2026-08-30",
+  "head": "25cbdf2d7f267ebae83606e86336d7712622d70a",
+  "branch": "arena/01a05271-life-xp",
+  "tracked_file_count": 2422,
+  "working_tree": {
+    "modified_count": 12,
+    "deleted_count": 2305,
+    "untracked_count": 5
+  },
+  "stage3_minimization_on_disk": true,
+  "stage4_reconciliation_on_disk": true,
+  "remaining_production_files": 117,
+  "migration_files": [
+    "lib/db/migrations/0000_tired_excalibur.sql",
+    "lib/db/migrations/0001_puzzling_the_santerians.sql",
+    "lib/db/migrations/meta/_journal.json",
+    "lib/db/migrations/meta/0000_snapshot.json",
+    "lib/db/migrations/meta/0001_snapshot.json"
+  ],
+  "schema_files": [
+    "lib/db/src/schema/ai.ts",
+    "lib/db/src/schema/index.ts",
+    "lib/db/src/schema/messaging.ts",
+    "lib/db/src/schema/onboarding.ts",
+    "lib/db/src/schema/progression.ts",
+    "lib/db/src/schema/quests.ts",
+    "lib/db/src/schema/social.ts",
+    "lib/db/src/schema/users.ts"
+  ],
+  "notes": [
+    "HEAD is a grafted clone; Stage 3 (e2b7ffa) and Stage 4 (bc24ce9) commits are absent from git history.",
+    "On-disk working tree carries the complete Stage 3 minimization (2305 deletions) + Stage 4 reconciliation (5 untracked files + schema/migration/doc edits).",
+    "No production file was accidentally deleted; remaining tracked-and-present files = 117.",
+    "No build artifacts, node_modules, or .env files are tracked."
+  ]
+}

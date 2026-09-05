@@ -1,0 +1,428 @@
+{
+  "generated": "Stage 4",
+  "source_of_truth": "lib/db/src/schema/* (Drizzle) + lib/db/migrations/* + raw SQL in artifacts/api-server/src/routes/*",
+  "live_database": "UNAVAILABLE",
+  "dialect": "postgresql",
+  "tables": [
+    {
+      "table": "users",
+      "source_of_truth": "schema/users.ts",
+      "columns": [
+        { "name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()" },
+        { "name": "email", "type": "text", "nullable": false },
+        { "name": "username", "type": "text", "nullable": false },
+        { "name": "password_hash", "type": "text", "nullable": false },
+        { "name": "display_name", "type": "text", "nullable": true },
+        { "name": "created_at", "type": "timestamp", "nullable": false, "default": "now()" },
+        { "name": "updated_at", "type": "timestamp", "nullable": false, "default": "now()" },
+        { "name": "last_login_at", "type": "timestamp", "nullable": true },
+        { "name": "is_active", "type": "boolean", "nullable": false, "default": true }
+      ],
+      "primary_key": ["id"],
+      "unique_constraints": ["email", "username"],
+      "read_by": ["routes/auth.ts", "routes/users.ts", "routes/social.ts", "routes/messages.ts"],
+      "written_by": ["routes/auth.ts", "routes/users.ts"]
+    },
+    {
+      "table": "refresh_tokens",
+      "source_of_truth": "schema/users.ts",
+      "columns": [
+        { "name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()" },
+        { "name": "token_hash", "type": "text", "nullable": false },
+        { "name": "user_id", "type": "uuid", "nullable": false },
+        { "name": "expires_at", "type": "timestamp", "nullable": false },
+        { "name": "created_at", "type": "timestamp", "nullable": false, "default": "now()" },
+        { "name": "revoked_at", "type": "timestamp", "nullable": true }
+      ],
+      "primary_key": ["id"],
+      "foreign_keys": [{ "column": "user_id", "references": "users.id", "on_delete": "cascade" }],
+      "unique_constraints": ["token_hash"],
+      "indexes": ["refresh_tokens_user_id_idx"],
+      "read_by": ["routes/auth.ts"],
+      "written_by": ["routes/auth.ts"]
+    },
+    {
+      "table": "onboarding_states",
+      "source_of_truth": "schema/onboarding.ts",
+      "columns": [
+        { "name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()" },
+        { "name": "user_id", "type": "uuid", "nullable": false },
+        { "name": "current_step", "type": "integer", "nullable": false, "default": 1 },
+        { "name": "is_completed", "type": "boolean", "nullable": false, "default": false },
+        { "name": "completed_at", "type": "timestamp", "nullable": true },
+        { "name": "created_at", "type": "timestamp", "nullable": false, "default": "now()" },
+        { "name": "updated_at", "type": "timestamp", "nullable": false, "default": "now()" }
+      ],
+      "primary_key": ["id"],
+      "foreign_keys": [{ "column": "user_id", "references": "users.id", "on_delete": "cascade" }],
+      "unique_constraints": ["user_id"],
+      "read_by": ["routes/onboarding.ts"],
+      "written_by": ["routes/onboarding.ts"]
+    },
+    {
+      "table": "user_profiles",
+      "source_of_truth": "schema/onboarding.ts",
+      "columns": [
+        { "name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()" },
+        { "name": "user_id", "type": "uuid", "nullable": false },
+        { "name": "height_cm", "type": "integer", "nullable": true },
+        { "name": "weight_kg", "type": "numeric(5,2)", "nullable": true },
+        { "name": "activity_level", "type": "text", "nullable": true },
+        { "name": "date_of_birth", "type": "timestamp", "nullable": true },
+        { "name": "avatar_url", "type": "text", "nullable": true },
+        { "name": "bio", "type": "text", "nullable": true },
+        { "name": "age", "type": "integer", "nullable": true },
+        { "name": "created_at", "type": "timestamp", "nullable": false, "default": "now()" },
+        { "name": "updated_at", "type": "timestamp", "nullable": false, "default": "now()" }
+      ],
+      "primary_key": ["id"],
+      "foreign_keys": [{ "column": "user_id", "references": "users.id", "on_delete": "cascade" }],
+      "unique_constraints": ["user_id"],
+      "read_by": ["routes/onboarding.ts", "routes/users.ts", "routes/social.ts", "routes/messages.ts"],
+      "written_by": ["routes/onboarding.ts", "routes/users.ts"]
+    },
+    {
+      "table": "archetypes",
+      "source_of_truth": "schema/onboarding.ts",
+      "columns": [
+        { "name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()" },
+        { "name": "name", "type": "text", "nullable": false },
+        { "name": "description", "type": "text", "nullable": false },
+        { "name": "focus_areas", "type": "json", "nullable": false },
+        { "name": "created_at", "type": "timestamp", "nullable": false, "default": "now()" }
+      ],
+      "primary_key": ["id"],
+      "unique_constraints": ["name"],
+      "read_by": ["routes/onboarding.ts"],
+      "written_by": ["scripts/src/seed-archetypes.ts"]
+    },
+    {
+      "table": "user_characters",
+      "source_of_truth": "schema/onboarding.ts",
+      "columns": [
+        { "name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()" },
+        { "name": "user_id", "type": "uuid", "nullable": false },
+        { "name": "archetype_id", "type": "uuid", "nullable": false },
+        { "name": "display_name", "type": "text", "nullable": true },
+        { "name": "created_at", "type": "timestamp", "nullable": false, "default": "now()" },
+        { "name": "updated_at", "type": "timestamp", "nullable": false, "default": "now()" }
+      ],
+      "primary_key": ["id"],
+      "foreign_keys": [
+        { "column": "user_id", "references": "users.id", "on_delete": "cascade" },
+        { "column": "archetype_id", "references": "archetypes.id", "on_delete": "no action" }
+      ],
+      "unique_constraints": ["user_id"],
+      "read_by": ["routes/onboarding.ts"],
+      "written_by": ["routes/onboarding.ts"]
+    },
+    {
+      "table": "user_goals",
+      "source_of_truth": "schema/onboarding.ts",
+      "columns": [
+        { "name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()" },
+        { "name": "user_id", "type": "uuid", "nullable": false },
+        { "name": "goal_key", "type": "text", "nullable": false },
+        { "name": "is_primary", "type": "boolean", "nullable": false, "default": false },
+        { "name": "text", "type": "text", "nullable": true },
+        { "name": "created_at", "type": "timestamp", "nullable": false, "default": "now()" }
+      ],
+      "primary_key": ["id"],
+      "foreign_keys": [{ "column": "user_id", "references": "users.id", "on_delete": "cascade" }],
+      "indexes": ["user_goals_user_id_idx"],
+      "read_by": ["routes/onboarding.ts", "routes/social.ts"],
+      "written_by": ["routes/onboarding.ts"]
+    },
+    {
+      "table": "user_levels",
+      "source_of_truth": "schema/progression.ts",
+      "columns": [
+        { "name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()" },
+        { "name": "user_id", "type": "uuid", "nullable": false },
+        { "name": "current_level", "type": "integer", "nullable": false, "default": 1 },
+        { "name": "total_xp", "type": "integer", "nullable": false, "default": 0 },
+        { "name": "updated_at", "type": "timestamp", "nullable": false, "default": "now()" }
+      ],
+      "primary_key": ["id"],
+      "foreign_keys": [{ "column": "user_id", "references": "users.id", "on_delete": "cascade" }],
+      "unique_constraints": ["user_id"],
+      "read_by": ["routes/progression.ts", "routes/users.ts", "routes/ai.ts", "routes/social.ts", "lib/progression.ts"],
+      "written_by": ["lib/progression.ts"]
+    },
+    {
+      "table": "user_attributes",
+      "source_of_truth": "schema/progression.ts",
+      "columns": [
+        { "name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()" },
+        { "name": "user_id", "type": "uuid", "nullable": false },
+        { "name": "attribute", "type": "text", "nullable": false },
+        { "name": "current_value", "type": "integer", "nullable": false, "default": 0 },
+        { "name": "updated_at", "type": "timestamp", "nullable": false, "default": "now()" }
+      ],
+      "primary_key": ["id"],
+      "foreign_keys": [{ "column": "user_id", "references": "users.id", "on_delete": "cascade" }],
+      "unique_constraints": ["user_id,attribute"],
+      "read_by": ["routes/progression.ts", "routes/ai.ts", "lib/progression.ts"],
+      "written_by": ["lib/progression.ts"]
+    },
+    {
+      "table": "attribute_history",
+      "source_of_truth": "schema/progression.ts",
+      "columns": [
+        { "name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()" },
+        { "name": "user_id", "type": "uuid", "nullable": false },
+        { "name": "attribute", "type": "text", "nullable": false },
+        { "name": "delta", "type": "integer", "nullable": false },
+        { "name": "source_type", "type": "text", "nullable": false },
+        { "name": "source_id", "type": "text", "nullable": true },
+        { "name": "created_at", "type": "timestamp", "nullable": false, "default": "now()" }
+      ],
+      "primary_key": ["id"],
+      "foreign_keys": [{ "column": "user_id", "references": "users.id", "on_delete": "cascade" }],
+      "unique_constraints": ["source_id,attribute"],
+      "indexes": ["attribute_history_user_id_idx"],
+      "read_by": ["routes/progression.ts"],
+      "written_by": ["lib/progression.ts"]
+    },
+    {
+      "table": "xp_transactions",
+      "source_of_truth": "schema/progression.ts",
+      "columns": [
+        { "name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()" },
+        { "name": "user_id", "type": "uuid", "nullable": false },
+        { "name": "amount", "type": "integer", "nullable": false },
+        { "name": "source_type", "type": "text", "nullable": false },
+        { "name": "source_id", "type": "text", "nullable": true },
+        { "name": "idempotency_key", "type": "text", "nullable": true },
+        { "name": "category", "type": "text", "nullable": true },
+        { "name": "description", "type": "text", "nullable": true },
+        { "name": "created_at", "type": "timestamp", "nullable": false, "default": "now()" }
+      ],
+      "primary_key": ["id"],
+      "foreign_keys": [{ "column": "user_id", "references": "users.id", "on_delete": "cascade" }],
+      "unique_constraints": ["idempotency_key"],
+      "indexes": ["xp_transactions_user_id_idx"],
+      "read_by": ["routes/progression.ts", "lib/progression.ts"],
+      "written_by": ["lib/progression.ts"]
+    },
+    {
+      "table": "quest_templates",
+      "source_of_truth": "schema/quests.ts",
+      "columns": [
+        { "name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()" },
+        { "name": "title", "type": "text", "nullable": false },
+        { "name": "description", "type": "text", "nullable": false },
+        { "name": "instructions", "type": "text", "nullable": true },
+        { "name": "category", "type": "text", "nullable": false },
+        { "name": "quest_type", "type": "text", "nullable": false },
+        { "name": "target_value", "type": "numeric(10,2)", "nullable": true },
+        { "name": "target_unit", "type": "text", "nullable": true },
+        { "name": "difficulty", "type": "text", "nullable": false, "default": "MEDIUM" },
+        { "name": "status", "type": "text", "nullable": false, "default": "DRAFT" },
+        { "name": "compatible_goals", "type": "json", "nullable": true },
+        { "name": "compatible_archetypes", "type": "json", "nullable": true },
+        { "name": "primary_attributes", "type": "json", "nullable": true },
+        { "name": "progression_config", "type": "json", "nullable": false, "default": "{}" },
+        { "name": "verification_requirement", "type": "text", "nullable": true },
+        { "name": "created_by", "type": "uuid", "nullable": true },
+        { "name": "created_at", "type": "timestamp", "nullable": false, "default": "now()" },
+        { "name": "updated_at", "type": "timestamp", "nullable": false, "default": "now()" }
+      ],
+      "primary_key": ["id"],
+      "read_by": ["routes/quests.ts"],
+      "written_by": ["seed scripts"]
+    },
+    {
+      "table": "user_quests",
+      "source_of_truth": "schema/quests.ts",
+      "columns": [
+        { "name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()" },
+        { "name": "user_id", "type": "uuid", "nullable": false },
+        { "name": "quest_template_id", "type": "uuid", "nullable": false },
+        { "name": "status", "type": "text", "nullable": false, "default": "ASSIGNED" },
+        { "name": "progress_value", "type": "numeric(10,2)", "nullable": false, "default": "0" },
+        { "name": "target_value", "type": "numeric(10,2)", "nullable": false },
+        { "name": "assigned_at", "type": "timestamp", "nullable": false, "default": "now()" },
+        { "name": "expires_at", "type": "timestamp", "nullable": true },
+        { "name": "completed_at", "type": "timestamp", "nullable": true },
+        { "name": "completion_source", "type": "text", "nullable": true },
+        { "name": "verification_status", "type": "text", "nullable": false, "default": "PENDING" }
+      ],
+      "primary_key": ["id"],
+      "foreign_keys": [
+        { "column": "user_id", "references": "users.id", "on_delete": "cascade" },
+        { "column": "quest_template_id", "references": "quest_templates.id", "on_delete": "no action" }
+      ],
+      "unique_constraints": ["user_id,quest_template_id,assigned_at"],
+      "indexes": ["user_quests_user_id_idx"],
+      "read_by": ["routes/quests.ts"],
+      "written_by": ["routes/quests.ts"]
+    },
+    {
+      "table": "ai_user_goals",
+      "source_of_truth": "schema/ai.ts",
+      "columns": [
+        { "name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()" },
+        { "name": "user_id", "type": "uuid", "nullable": false },
+        { "name": "goals", "type": "text", "nullable": false },
+        { "name": "updated_at", "type": "timestamp", "nullable": false, "default": "now()" }
+      ],
+      "primary_key": ["id"],
+      "foreign_keys": [{ "column": "user_id", "references": "users.id", "on_delete": "cascade" }],
+      "unique_constraints": ["user_id"],
+      "read_by": ["routes/ai.ts"],
+      "written_by": ["routes/ai.ts"]
+    },
+    {
+      "table": "ai_daily_tasks",
+      "source_of_truth": "schema/ai.ts",
+      "columns": [
+        { "name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()" },
+        { "name": "user_id", "type": "uuid", "nullable": false },
+        { "name": "date", "type": "text", "nullable": false },
+        { "name": "task_text", "type": "text", "nullable": false },
+        { "name": "category", "type": "text", "nullable": false },
+        { "name": "xp_reward", "type": "integer", "nullable": false, "default": 25 },
+        { "name": "is_completed", "type": "boolean", "nullable": false, "default": false },
+        { "name": "completed_at", "type": "timestamp", "nullable": true },
+        { "name": "created_at", "type": "timestamp", "nullable": false, "default": "now()" }
+      ],
+      "primary_key": ["id"],
+      "foreign_keys": [{ "column": "user_id", "references": "users.id", "on_delete": "cascade" }],
+      "indexes": ["ai_daily_tasks_user_date_idx"],
+      "read_by": ["routes/ai.ts"],
+      "written_by": ["routes/ai.ts"]
+    },
+    {
+      "table": "ai_chat_messages",
+      "source_of_truth": "schema/ai.ts",
+      "columns": [
+        { "name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()" },
+        { "name": "user_id", "type": "uuid", "nullable": false },
+        { "name": "role", "type": "text", "nullable": false },
+        { "name": "content", "type": "text", "nullable": false },
+        { "name": "created_at", "type": "timestamp", "nullable": false, "default": "now()" }
+      ],
+      "primary_key": ["id"],
+      "foreign_keys": [{ "column": "user_id", "references": "users.id", "on_delete": "cascade" }],
+      "indexes": ["ai_chat_messages_user_idx"],
+      "read_by": ["routes/ai.ts"],
+      "written_by": ["routes/ai.ts"]
+    },
+    {
+      "table": "ai_daily_tips",
+      "source_of_truth": "schema/ai.ts",
+      "columns": [
+        { "name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()" },
+        { "name": "user_id", "type": "uuid", "nullable": false },
+        { "name": "date", "type": "text", "nullable": false },
+        { "name": "tip", "type": "text", "nullable": false },
+        { "name": "category", "type": "text", "nullable": false },
+        { "name": "created_at", "type": "timestamp", "nullable": false, "default": "now()" }
+      ],
+      "primary_key": ["id"],
+      "foreign_keys": [{ "column": "user_id", "references": "users.id", "on_delete": "cascade" }],
+      "indexes": ["ai_daily_tips_user_date_idx"],
+      "read_by": ["routes/ai.ts"],
+      "written_by": ["routes/ai.ts"]
+    },
+    {
+      "table": "posts",
+      "source_of_truth": "schema/social.ts (raw SQL in routes/social.ts)",
+      "columns": [
+        { "name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()" },
+        { "name": "user_id", "type": "uuid", "nullable": false },
+        { "name": "caption", "type": "text", "nullable": true },
+        { "name": "image_url", "type": "text", "nullable": true },
+        { "name": "video_url", "type": "text", "nullable": true },
+        { "name": "hashtags", "type": "text[]", "nullable": false, "default": "'{}'::text[]" },
+        { "name": "likes_count", "type": "integer", "nullable": false, "default": 0 },
+        { "name": "post_type", "type": "text", "nullable": false, "default": "post" },
+        { "name": "created_at", "type": "timestamp", "nullable": false, "default": "now()" }
+      ],
+      "primary_key": ["id"],
+      "foreign_keys": [{ "column": "user_id", "references": "users.id", "on_delete": "cascade" }],
+      "indexes": ["posts_user_id_idx"],
+      "read_by": ["routes/social.ts"],
+      "written_by": ["routes/social.ts"]
+    },
+    {
+      "table": "post_likes",
+      "source_of_truth": "schema/social.ts (raw SQL in routes/social.ts)",
+      "columns": [
+        { "name": "user_id", "type": "uuid", "nullable": false },
+        { "name": "post_id", "type": "uuid", "nullable": false },
+        { "name": "created_at", "type": "timestamp", "nullable": false, "default": "now()" }
+      ],
+      "foreign_keys": [
+        { "column": "user_id", "references": "users.id", "on_delete": "cascade" },
+        { "column": "post_id", "references": "posts.id", "on_delete": "cascade" }
+      ],
+      "unique_constraints": ["user_id,post_id"],
+      "read_by": ["routes/social.ts"],
+      "written_by": ["routes/social.ts"]
+    },
+    {
+      "table": "follows",
+      "source_of_truth": "schema/social.ts (raw SQL in routes/social.ts)",
+      "columns": [
+        { "name": "follower_id", "type": "uuid", "nullable": false },
+        { "name": "following_id", "type": "uuid", "nullable": false },
+        { "name": "created_at", "type": "timestamp", "nullable": false, "default": "now()" }
+      ],
+      "foreign_keys": [
+        { "column": "follower_id", "references": "users.id", "on_delete": "cascade" },
+        { "column": "following_id", "references": "users.id", "on_delete": "cascade" }
+      ],
+      "unique_constraints": ["follower_id,following_id"],
+      "read_by": ["routes/social.ts"],
+      "written_by": ["routes/social.ts"]
+    },
+    {
+      "table": "conversations",
+      "source_of_truth": "schema/messaging.ts (raw SQL in routes/messages.ts)",
+      "columns": [
+        { "name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()" },
+        { "name": "created_at", "type": "timestamp", "nullable": false, "default": "now()" }
+      ],
+      "primary_key": ["id"],
+      "read_by": ["routes/messages.ts"],
+      "written_by": ["routes/messages.ts"]
+    },
+    {
+      "table": "conversation_members",
+      "source_of_truth": "schema/messaging.ts (raw SQL in routes/messages.ts)",
+      "columns": [
+        { "name": "conversation_id", "type": "uuid", "nullable": false },
+        { "name": "user_id", "type": "uuid", "nullable": false },
+        { "name": "created_at", "type": "timestamp", "nullable": false, "default": "now()" }
+      ],
+      "foreign_keys": [
+        { "column": "conversation_id", "references": "conversations.id", "on_delete": "cascade" },
+        { "column": "user_id", "references": "users.id", "on_delete": "cascade" }
+      ],
+      "unique_constraints": ["conversation_id,user_id"],
+      "read_by": ["routes/messages.ts"],
+      "written_by": ["routes/messages.ts"]
+    },
+    {
+      "table": "messages",
+      "source_of_truth": "schema/messaging.ts (raw SQL in routes/messages.ts)",
+      "columns": [
+        { "name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()" },
+        { "name": "conversation_id", "type": "uuid", "nullable": false },
+        { "name": "sender_id", "type": "uuid", "nullable": false },
+        { "name": "content", "type": "text", "nullable": false },
+        { "name": "created_at", "type": "timestamp", "nullable": false, "default": "now()" }
+      ],
+      "primary_key": ["id"],
+      "foreign_keys": [
+        { "column": "conversation_id", "references": "conversations.id", "on_delete": "cascade" },
+        { "column": "sender_id", "references": "users.id", "on_delete": "cascade" }
+      ],
+      "indexes": ["messages_conversation_id_idx"],
+      "read_by": ["routes/messages.ts"],
+      "written_by": ["routes/messages.ts"]
+    }
+  ]
+}

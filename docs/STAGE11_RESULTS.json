@@ -1,0 +1,106 @@
+{
+  "stage": 11,
+  "timestamp": "2026-08-31",
+  "commit": "7bd745621277ed61cf2078accf845ea1030ee8af",
+  "branch": "arena/01a05271-life-xp",
+  "repository_status": {
+    "head": "7bd745621277ed61cf2078accf845ea1030ee8af",
+    "remote_head": "7bd745621277ed61cf2078accf845ea1030ee8af",
+    "synchronized": true,
+    "working_tree_clean": true,
+    "tracked_files": 157,
+    "untracked_files": 0,
+    "unexpected_modifications": 0,
+    "reset_note": "Sandbox reset twice between stages (local HEAD reverted to 25cbdf2). Recovered each time from remote after confirming the exact expected commit. No work lost."
+  },
+  "build": {
+    "install_frozen_lockfile": "PASS (pnpm 10.34.5, lockfile unmutated)",
+    "typecheck": "PASS (0 errors, all packages)",
+    "build": "PASS (api + web + libs, PORT/BASE_PATH supplied)"
+  },
+  "tests": {
+    "result": "PASS",
+    "count": "40/40",
+    "note": "with isolated PGlite DB (TEST_DATABASE_URL); refresh-rotation.test.ts added this stage"
+  },
+  "database": {
+    "real": "BLOCKED — REAL DATABASE UNAVAILABLE (no DATABASE_URL)",
+    "isolated_supporting_evidence": "PGlite pgwire server: 23 app tables / 154 columns match DATABASE_CONTRACT.json exactly; 20 PKs, 25 FKs; CRUD smoke verified API+DB state"
+  },
+  "ai": {
+    "real": "BLOCKED — REAL PROVIDER CREDENTIAL UNAVAILABLE (no GROQ_API_KEY)",
+    "no_key_degradation": "PASS (chat 503, daily-tasks [], life-tip fallback, server healthy, no credential leak)",
+    "live_generation": "UNVERIFIED"
+  },
+  "object_storage": {
+    "result": "BLOCKED — INFRASTRUCTURE UNAVAILABLE",
+    "note": "no sidecar; upload/ACL/traversal not inferred from static review"
+  },
+  "backend_e2e": {
+    "result": "LOCAL PASS (production build against isolated Postgres; real DB would be full PASS)",
+    "journey": "register/login/onboarding/profile/progression/quests/ai(post-like-like-unlike)/social/like/follow/conversation/message/SSE/logout/refresh-rejection",
+    "authorization_boundaries": "post 404, quest 404, message 403, conversation 403, SSE member/non-member/garbage 200/403/401",
+    "fail_fast": "DATABASE_URL/SESSION_SECRET/PORT each fail with distinct message, exit 1",
+    "previously_fixed_bugs_reverified": ["BUG-1..BUG-5", "SSE auth (7bdbb6a)", "UUID validation (92d3d5b)", "input validation (639f943)"]
+  },
+  "browser_e2e": {
+    "result": "BLOCKED — INFRASTRUCTURE",
+    "note": "no Playwright/Chromium; static frontend serving verified but not presented as browser PASS"
+  },
+  "security": {
+    "result": "PASS (LOCAL)",
+    "details": {
+      "malformed_uuid": 400, "malformed_json": 400, "unexpected_json_types": 400,
+      "nul_byte": "sanitized (no 500)", "sql_injection": "401 (parameterized)",
+      "oversized_payload_200kb": 413, "invalid_jwt": 401, "expired_jwt": 401,
+      "revoked_refresh": 401, "cross_user_post": 404, "cross_user_quest": 404,
+      "cross_user_messaging": 403, "sse": "200/403/401", "cors": "allowed 204+credentials; disallowed no-ACAO",
+      "object_traversal": "BLOCKED", "secret_leakage": "none", "stack_trace_leakage": "none to clients"
+    }
+  },
+  "concurrency": {
+    "result": "PASS (LOCAL; real-PG BLOCKED)",
+    "details": {
+      "triple_duplicate_like": "likes_count=3 exact", "triple_unlike": "0 exact",
+      "duplicate_follow": "idempotent", "refresh_rotation": "atomic (1 success/token, 5/5 runs)",
+      "quest_completion": "ownership-guarded", "message_creation": "membership-guarded",
+      "connection_pool_failures": "none", "race_induced_500": "none"
+    }
+  },
+  "dependencies": {
+    "production_runtime": "1 MODERATE (uuid <11.1.1 via @google-cloud/storage>gaxios, low exploitability)",
+    "development_only": "none separate",
+    "build_tooling": "6 HIGH + 2 MODERATE + 1 LOW (js-yaml x2, brace-expansion x2, fast-uri, nanoid, postcss, esbuild) — not shipped",
+    "transitive": "all of the above",
+    "exploitable": "no CRITICAL, no production-runtime HIGH",
+    "action": "no blind upgrades"
+  },
+  "observability": {
+    "result": "PASS (LOCAL)",
+    "no_secrets_in_logs": true,
+    "no_jwt_in_logs": true,
+    "no_stack_in_client_responses": true,
+    "low_findings": ["server-side stack traces for CORS/JSON rejection (logs only)", "no SIGTERM drain handler (clean exit, no drain)"]
+  },
+  "performance": {
+    "result": "PASS (LOCAL, bounded only)",
+    "pagination": "feed<=100/50, messages<=100, chat<=50, leaderboard<=100, progression<=200",
+    "connection_leaks": "none observed",
+    "sse_cleanup": "on disconnect",
+    "large_payload": "413",
+    "low_findings": ["quests/recommended uncapped limit (small public catalogue)"]
+  },
+  "blockers": [
+    "Real PostgreSQL DATABASE_URL not provisioned",
+    "Real GROQ_API_KEY not available",
+    "Object-storage sidecar not available",
+    "Browser automation (Playwright/Chromium) not available"
+  ],
+  "risks": {
+    "critical": 0,
+    "high": 0,
+    "medium": 1,
+    "low": 8
+  },
+  "final_decision": "YELLOW (CONDITIONAL GO)"
+}

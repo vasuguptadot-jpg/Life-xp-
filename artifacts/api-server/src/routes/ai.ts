@@ -6,15 +6,42 @@ import {
   aiDailyTasksTable,
   aiChatMessagesTable,
   aiDailyTipsTable,
-  userLevelsTable,
-  userAttributesTable,
 } from "@workspace/db/schema";
 import { requireAuth } from "../lib/auth";
-import { awardXp, isValidAttribute } from "../lib/progression";
+import { logger } from "../lib/logger";
+import { isValidUuid } from "../lib/uuid";
+import { parseLimit } from "../lib/pagination";
+import { awardXpInTransaction, isValidAttribute } from "../lib/progression";
+import {
+  buildEngineState,
+  buildAnalyticsState,
+  countActiveQuests,
+  countCompletedToday,
+  detectIntent,
+  buildIntentResponse,
+  buildProgressResponse,
+  buildDailyPlanResponse,
+  buildWeeklyReviewResponse,
+  buildWeaknessesResponse,
+  buildRecommendationsResponse,
+  buildGoalsResponse,
+  buildMomentumResponse,
+  computeMomentum,
+  detectWeaknesses,
+  recommendTasks,
+  decomposeGoals,
+  buildWeeklyReview,
+  composeDailyPlan,
+  generateDailyTasks,
+  generateDailyTip,
+} from "../lib/life-engine";
 import Groq from "groq-sdk";
+import { makeMutationLimiter } from "../lib/rate-limit";
 
 const router = Router();
 router.use(requireAuth);
+// AG-2: bound daily-task completion attempts per authenticated user.
+const completionLimiter = makeMutationLimiter();
 
 const MODEL = "llama-3.3-70b-versatile";
 
@@ -26,30 +53,97 @@ function todayStr() {
   return new Date().toISOString().split("T")[0];
 }
 
-function getRankName(level: number) {
-  if (level < 5) return "Initiate";
-  if (level < 10) return "Adventurer";
-  if (level < 20) return "Champion";
-  if (level < 35) return "Hero";
-  return "Legend";
+/** Wrap an async op with a hard timeout so a hung provider cannot stall the endpoint. */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("AI provider timeout")), ms);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (err) => { clearTimeout(timer); reject(err); },
+    );
+  });
 }
 
-async function getUserContext(userId: string) {
-  const [goals, levelRows, attrs] = await Promise.all([
-    db.select().from(aiUserGoalsTable).where(eq(aiUserGoalsTable.userId, userId)).limit(1),
-    db.select().from(userLevelsTable).where(eq(userLevelsTable.userId, userId)).limit(1),
-    db.select().from(userAttributesTable).where(eq(userAttributesTable.userId, userId)),
-  ]);
+function attributeSummary(attributes: Record<string, number>): string {
+  const entries = Object.entries(attributes);
+  if (entries.length === 0) return "none trained yet";
+  return entries.map(([k, v]) => `${k}: ${v}`).join(", ");
+}
 
-  const level = levelRows[0]?.currentLevel ?? 1;
-  const totalXp = levelRows[0]?.totalXp ?? 0;
-  const userGoals = goals[0]?.goals ?? "";
-  const attrSummary =
-    attrs.length > 0
-      ? attrs.map((a) => `${a.attribute}: ${a.currentValue}`).join(", ")
-      : "none trained yet";
+/**
+ * NON-AUTHORITATIVE optional enhancement: reword task text. Returns the
+ * original text on any failure/timeout so the deterministic engine result is
+ * never lost. Only affects presentation — never category, XP, or selection.
+ */
+async function enhanceTaskWording(texts: string[]): Promise<string[]> {
+  if (!process.env.GROQ_API_KEY || texts.length === 0) return texts;
+  try {
+    const groq = getGroq();
+    const prompt = `Rewrite each of the following daily task descriptions to be more engaging and specific. Keep the meaning and category identical, 12 words max each. Return ONLY a JSON array of strings in the same order.\n${JSON.stringify(texts)}`;
+    const completion = await withTimeout(
+      groq.chat.completions.create({
+        model: MODEL,
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 400,
+        temperature: 0.7,
+      }),
+      8000,
+    );
+    const raw = completion.choices[0]?.message?.content ?? "[]";
+    const match = raw.match(/\[[\s\S]*\]/);
+    if (!match) return texts;
+    const arr: unknown = JSON.parse(match[0]);
+    if (!Array.isArray(arr) || arr.length !== texts.length) return texts;
+    return arr.map((s, i) =>
+      typeof s === "string" && s.trim() ? s.trim().slice(0, 300) : texts[i],
+    );
+  } catch (err) {
+    logger.warn(
+      {
+        event: "external.groq.failed",
+        category: "external_service",
+        operation: "enhanceTaskWording",
+        err: err instanceof Error ? err : new Error(String(err)),
+      },
+      "AI task-wording enhancement failed — using deterministic text",
+    );
+    return texts;
+  }
+}
 
-  return { level, totalXp, userGoals, attrSummary, rank: getRankName(level) };
+/** NON-AUTHORITATIVE optional enhancement: reword a life tip. Falls back safely. */
+async function enhanceTipWording(tip: string): Promise<string> {
+  if (!process.env.GROQ_API_KEY || !tip) return tip;
+  try {
+    const groq = getGroq();
+    const completion = await withTimeout(
+      groq.chat.completions.create({
+        model: MODEL,
+        messages: [
+          {
+            role: "user",
+            content: `Rewrite this life tip to be more motivating and specific, 3 sentences max. Keep the advice identical:\n"${tip}"`,
+          },
+        ],
+        max_tokens: 150,
+        temperature: 0.8,
+      }),
+      8000,
+    );
+    const raw = completion.choices[0]?.message?.content ?? "";
+    return raw.trim() ? raw.trim().slice(0, 500) : tip;
+  } catch (err) {
+    logger.warn(
+      {
+        event: "external.groq.failed",
+        category: "external_service",
+        operation: "enhanceTipWording",
+        err: err instanceof Error ? err : new Error(String(err)),
+      },
+      "AI tip-wording enhancement failed — using deterministic tip",
+    );
+    return tip;
+  }
 }
 
 // ── GET /api/ai/goals ────────────────────────────────────────────────────────
@@ -95,91 +189,27 @@ router.post("/goals", async (req, res) => {
 });
 
 // ── GET /api/ai/daily-tasks ──────────────────────────────────────────────────
+// Deterministic Life Engine generates tasks; AI optionally rewords presentation.
 router.get("/daily-tasks", async (req, res) => {
   const userId = req.user!.sub;
-  const today = todayStr();
-
-  const existing = await db
-    .select()
-    .from(aiDailyTasksTable)
-    .where(and(eq(aiDailyTasksTable.userId, userId), eq(aiDailyTasksTable.date, today)));
-
-  if (existing.length > 0) {
-    res.json(existing);
-    return;
-  }
-
-  if (!process.env.GROQ_API_KEY) {
-    res.json([]);
-    return;
-  }
-
-  const ctx = await getUserContext(userId);
-
-  const prompt = `You are a life coach for LifeXP, a gamified self-improvement app. Generate exactly 5 personalized daily tasks for today.
-
-User context:
-- Level: ${ctx.level} (${ctx.rank})
-- Total XP: ${ctx.totalXp}
-- Current attributes: ${ctx.attrSummary}
-- User goals: ${ctx.userGoals || "No specific goals set — provide balanced tasks across all life areas"}
-
-The 7 attributes are:
-STRENGTH (gym/weights), ENDURANCE (cardio/running), MOBILITY (stretching/yoga/flexibility),
-NUTRITION (diet/healthy eating/water), RECOVERY (sleep/rest/stress management),
-DISCIPLINE (habits/consistency/productivity), KNOWLEDGE (reading/learning/studying)
-
-Rules:
-- Tasks must be specific and completable within one day
-- Vary the categories based on the user's goals
-- If user has no attributes trained yet, give introductory tasks
-- Make tasks progressively appropriate for their level
-
-Respond ONLY with a valid JSON array, nothing else. Example format:
-[{"taskText":"Do 3 sets of 10 push-ups","category":"STRENGTH","xpReward":25},{"taskText":"Drink 8 glasses of water today","category":"NUTRITION","xpReward":20}]`;
-
   try {
-    const groq = getGroq();
-    const completion = await groq.chat.completions.create({
-      model: MODEL,
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 700,
-      temperature: 0.7,
-    });
-
-    const raw = completion.choices[0]?.message?.content ?? "[]";
-    const match = raw.match(/\[[\s\S]*\]/);
-    if (!match) {
-      res.json([]);
+    const tasks = await generateDailyTasks(userId);
+    if (tasks.length > 0 && process.env.GROQ_API_KEY) {
+      const texts = await enhanceTaskWording(tasks.map((t) => t.taskText));
+      res.json(tasks.map((t, i) => ({ ...t, taskText: texts[i] })));
       return;
     }
-
-    const tasks: Array<{ taskText: string; category: string; xpReward: number }> =
-      JSON.parse(match[0]);
-
-    const rows = await db
-      .insert(aiDailyTasksTable)
-      .values(
-        tasks.slice(0, 5).map((t) => ({
-          userId,
-          date: today,
-          taskText: String(t.taskText ?? "Complete a self-improvement activity").slice(0, 300),
-          category: (String(t.category ?? "DISCIPLINE").toUpperCase().trim() as string),
-          xpReward: Math.min(50, Math.max(10, Number(t.xpReward) || 25)),
-        })),
-      )
-      .returning();
-
-    res.json(rows);
+    res.json(tasks);
   } catch {
     res.json([]);
   }
 });
 
 // ── POST /api/ai/daily-tasks/:id/complete ────────────────────────────────────
-router.post("/daily-tasks/:id/complete", async (req, res) => {
+router.post("/daily-tasks/:id/complete", completionLimiter, async (req, res) => {
   const userId = req.user!.sub;
   const { id } = req.params;
+  if (!isValidUuid(id)) { res.status(400).json({ message: "Invalid task id" }); return; }
 
   const [task] = await db
     .select()
@@ -196,113 +226,69 @@ router.post("/daily-tasks/:id/complete", async (req, res) => {
     return;
   }
 
-  const [updated] = await db
-    .update(aiDailyTasksTable)
-    .set({ isCompleted: true, completedAt: new Date() })
-    .where(
-      and(
-        eq(aiDailyTasksTable.id, id),
-        eq(aiDailyTasksTable.userId, userId),
-        eq(aiDailyTasksTable.isCompleted, false),
-      ),
-    )
-    .returning();
+  const cat = task.category.toUpperCase();
+  const validAttr = isValidAttribute(cat) ? cat : null;
+
+  // Mark-complete + XP award are ATOMIC: a failure between them cannot leave a
+  // task "completed but unrewarded" (or the reverse). The idempotency key still
+  // makes concurrent/duplicate completions safe.
+  const { updated, xpResult } = await db.transaction(async (tx) => {
+    const [u] = await tx
+      .update(aiDailyTasksTable)
+      .set({ isCompleted: true, completedAt: new Date() })
+      .where(
+        and(
+          eq(aiDailyTasksTable.id, id),
+          eq(aiDailyTasksTable.userId, userId),
+          eq(aiDailyTasksTable.isCompleted, false),
+        ),
+      )
+      .returning();
+
+    if (!u) {
+      return { updated: null, xpResult: null };
+    }
+
+    const xp = await awardXpInTransaction(tx, {
+      userId,
+      sourceType: "DAILY_TASK",
+      sourceId: id,
+      idempotencyKey: `daily_task_${id}`,
+      xp: task.xpReward,
+      category: "daily",
+      description: task.taskText,
+      ...(validAttr
+        ? { attributes: [{ attribute: validAttr, xp: Math.floor(task.xpReward / 2) }] }
+        : {}),
+    });
+
+    return { updated: u, xpResult: xp };
+  });
 
   if (!updated) {
     res.json({ task, alreadyCompleted: true });
     return;
   }
 
-  const cat = task.category.toUpperCase();
-  const validAttr = isValidAttribute(cat) ? cat : null;
-
-  const xpResult = await awardXp({
-    userId,
-    sourceType: "DAILY_TASK",
-    sourceId: id,
-    idempotencyKey: `daily_task_${id}`,
-    xp: task.xpReward,
-    category: "daily",
-    description: task.taskText,
-    ...(validAttr
-      ? { attributes: [{ attribute: validAttr, xp: Math.floor(task.xpReward / 2) }] }
-      : {}),
-  });
-
   res.json({ task: updated, xp: xpResult });
 });
 
 // ── GET /api/ai/life-tip ─────────────────────────────────────────────────────
+// Deterministic Life Tip Engine; AI optionally rewords presentation.
 router.get("/life-tip", async (req, res) => {
   const userId = req.user!.sub;
-  const today = todayStr();
-
-  const [existing] = await db
-    .select()
-    .from(aiDailyTipsTable)
-    .where(and(eq(aiDailyTipsTable.userId, userId), eq(aiDailyTipsTable.date, today)))
-    .limit(1);
-
-  if (existing) {
-    res.json(existing);
-    return;
-  }
-
-  if (!process.env.GROQ_API_KEY) {
-    res.json({
-      tip: "Small consistent actions compound into extraordinary results. Pick one thing to improve today.",
-      category: "DISCIPLINE",
-      date: today,
-    });
-    return;
-  }
-
-  const ctx = await getUserContext(userId);
-
-  const prompt = `Generate a single powerful, specific life tip for a LifeXP user:
-- Level ${ctx.level} (${ctx.rank}), ${ctx.totalXp} total XP
-- Attributes: ${ctx.attrSummary}
-- Goals: ${ctx.userGoals || "general self-improvement"}
-
-Requirements:
-- Specific and actionable TODAY, not generic
-- Backed by science or proven technique (briefly mention why it works)
-- 2-3 sentences max
-- Target the area most relevant to their goals or weakest attribute
-
-Respond ONLY with JSON: {"tip": "...", "category": "ONE_OF_STRENGTH|ENDURANCE|MOBILITY|NUTRITION|RECOVERY|DISCIPLINE|KNOWLEDGE"}`;
-
   try {
-    const groq = getGroq();
-    const completion = await groq.chat.completions.create({
-      model: MODEL,
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 250,
-      temperature: 0.8,
-    });
-
-    const raw = completion.choices[0]?.message?.content ?? "";
-    const match = raw.match(/\{[\s\S]*\}/);
-    const parsed = match
-      ? JSON.parse(match[0])
-      : { tip: "Focus on one small improvement today.", category: "DISCIPLINE" };
-
-    const [row] = await db
-      .insert(aiDailyTipsTable)
-      .values({
-        userId,
-        date: today,
-        tip: String(parsed.tip || "Focus on one small improvement today.").slice(0, 500),
-        category: (String(parsed.category || "DISCIPLINE").toUpperCase().trim()),
-      })
-      .returning();
-
-    res.json(row);
+    const tip = await generateDailyTip(userId);
+    if (process.env.GROQ_API_KEY) {
+      res.json({ ...tip, tip: await enhanceTipWording(tip.tip) });
+      return;
+    }
+    res.json(tip);
   } catch {
     res.json({
       tip: "Small consistent actions compound into extraordinary results.",
       category: "DISCIPLINE",
-      date: today,
+      date: todayStr(),
     });
   }
 });
@@ -310,7 +296,7 @@ Respond ONLY with JSON: {"tip": "...", "category": "ONE_OF_STRENGTH|ENDURANCE|MO
 // ── GET /api/ai/chat/history ─────────────────────────────────────────────────
 router.get("/chat/history", async (req, res) => {
   const userId = req.user!.sub;
-  const limit = Math.min(Number(req.query.limit) || 30, 50);
+  const limit = parseLimit(req.query.limit, 30, 50);
 
   const messages = await db
     .select()
@@ -323,6 +309,8 @@ router.get("/chat/history", async (req, res) => {
 });
 
 // ── POST /api/ai/chat ────────────────────────────────────────────────────────
+// Deterministic intent layer answers common data questions without Groq;
+// open-ended messages fall through to the AI-native coach.
 router.post("/chat", async (req, res) => {
   const userId = req.user!.sub;
   const { message } = req.body ?? {};
@@ -332,15 +320,82 @@ router.post("/chat", async (req, res) => {
     return;
   }
 
+  const userMsg = message.trim().slice(0, 2000);
+
+  // ── Deterministic intent pre-processing (no AI) ──────────────────────────
+  const intent = detectIntent(userMsg);
+  if (intent) {
+    const state = await buildEngineState(userId);
+    const [activeQuests, completedToday] = await Promise.all([
+      countActiveQuests(userId),
+      countCompletedToday(userId),
+    ]);
+    const view = {
+      level: state.level,
+      totalXp: state.totalXp,
+      rank: state.rank,
+      streak: state.streak,
+      activeQuests,
+      completedToday,
+    };
+
+    let reply: string;
+    switch (intent) {
+      case "progress": {
+        const as = await buildAnalyticsState(userId);
+        reply = buildProgressResponse(view, computeMomentum(as));
+        break;
+      }
+      case "daily_plan": {
+        reply = buildDailyPlanResponse(await composeDailyPlan(userId));
+        break;
+      }
+      case "weekly_review": {
+        const as = await buildAnalyticsState(userId);
+        reply = buildWeeklyReviewResponse(buildWeeklyReview(as, computeMomentum(as)));
+        break;
+      }
+      case "weaknesses": {
+        const as = await buildAnalyticsState(userId);
+        reply = buildWeaknessesResponse(detectWeaknesses(as));
+        break;
+      }
+      case "recommendations": {
+        const as = await buildAnalyticsState(userId);
+        reply = buildRecommendationsResponse(recommendTasks(as));
+        break;
+      }
+      case "goals": {
+        const as = await buildAnalyticsState(userId);
+        reply = buildGoalsResponse(decomposeGoals(as));
+        break;
+      }
+      case "momentum": {
+        const as = await buildAnalyticsState(userId);
+        reply = buildMomentumResponse(computeMomentum(as));
+        break;
+      }
+      default:
+        reply = buildIntentResponse(intent, view);
+    }
+
+    await db.insert(aiChatMessagesTable).values({ userId, role: "user", content: userMsg });
+    const [savedMsg] = await db
+      .insert(aiChatMessagesTable)
+      .values({ userId, role: "assistant", content: reply })
+      .returning();
+
+    res.json({ message: reply, id: savedMsg.id });
+    return;
+  }
+
   if (!process.env.GROQ_API_KEY) {
     res.status(503).json({ message: "AI coach is not configured. Add GROQ_API_KEY to enable." });
     return;
   }
 
-  const userMsg = message.trim().slice(0, 2000);
-
   const [ctx, recentHistory] = await Promise.all([
-    getUserContext(userId),
+    buildEngineState(userId),
     db
       .select()
       .from(aiChatMessagesTable)
@@ -353,8 +408,8 @@ router.post("/chat", async (req, res) => {
 
 User profile:
 - Level ${ctx.level} (${ctx.rank}), Total XP: ${ctx.totalXp}
-- Attributes: ${ctx.attrSummary}
-- Stated goals: ${ctx.userGoals || "not set yet — ask them about their goals early in the conversation"}
+- Attributes: ${attributeSummary(ctx.attributes)}
+- Stated goals: ${ctx.goalsText || "not set yet — ask them about their goals early in the conversation"}
 
 The 7 life attributes: STRENGTH (gym/weights), ENDURANCE (cardio), MOBILITY (flexibility), NUTRITION (diet), RECOVERY (sleep/rest), DISCIPLINE (habits), KNOWLEDGE (learning).
 
@@ -398,8 +453,19 @@ Your coaching style:
 
     res.json({ message: aiResponse, id: savedMsg.id });
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Unknown error";
-    res.status(500).json({ message: "AI coach is temporarily unavailable", error: msg });
+    // Log the external failure server-side with full context; return a generic
+    // message so internal provider details (endpoints, error text) never leak
+    // to the client.
+    logger.error(
+      {
+        event: "external.groq.failed",
+        category: "external_service",
+        operation: "chat",
+        err: e instanceof Error ? e : new Error(String(e)),
+      },
+      "AI chat failed",
+    );
+    res.status(503).json({ message: "AI coach is temporarily unavailable" });
   }
 });
 

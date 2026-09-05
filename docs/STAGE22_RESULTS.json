@@ -1,0 +1,104 @@
+{
+  "stage": "Stage 22 — Production Observability, Diagnostics & Operational Resilience",
+  "decision": "GREEN",
+  "baseline": {
+    "remote_head": "a43b80a15ed3d5312271cdde46de03cfb68b4795",
+    "branch": "arena/01a05271-life-xp",
+    "stage21_1_commit": "60bf46f839d5f7aec2504583125e3100b810f1cb (present as ancestor)",
+    "baseline_tests": "344/344 (40 files), 79.5s",
+    "baseline_typecheck": "PASS (workspace-level tsc --build + artifacts)",
+    "baseline_build": "PASS",
+    "baseline_secret_scan": "clean",
+    "note": "Environment reset recovered via git fetch + reset --hard origin/arena/01a05271-life-xp -> a43b80a"
+  },
+  "observability": {
+    "structured_logging": "pino JSON (level/time/pid/hostname + event/category)",
+    "error_taxonomy": "validation/authentication/authorization/not_found/conflict/rate_limit/database/transaction/external_service/timeout/internal",
+    "request_correlation": "X-Request-Id header on every response; 50 concurrent requests verified distinct; ids survive error paths",
+    "events": [
+      "auth.failed", "rate_limit.rejected", "database.pool.error",
+      "readiness.failed", "xp.awarded", "xp.award.replayed",
+      "external.groq.failed", "external.storage.failed",
+      "sse.connection.opened", "sse.connection.closed", "sse.delivery.failed"
+    ],
+    "absent_subsystems": ["notifications/email", "background jobs", "scheduled work", "server cache"]
+  },
+  "health_readiness": {
+    "liveness": "/api/healthz (200 regardless of DB)",
+    "readiness": "/api/readyz (SELECT 1, 503 on DB down, no GROQ dependency)",
+    "verified": ["healthy 200", "db down 503 {database:down} + healthz 200", "recovered 200"]
+  },
+  "performance": {
+    "measured_against": "real server + real PostgreSQL, 60 samples/endpoint, warm",
+    "p50_p95_p99_ms": {
+      "healthz": [0.9, 1.7, 1.8],
+      "readyz": [1.5, 2.2, 3.6],
+      "users/me": [1.5, 2.1, 2.8],
+      "ai/goals": [1.6, 2.7, 6.4],
+      "progression/attribute-history": [1.7, 3.3, 27.5],
+      "ai/life-tip": [2.6, 3.7, 6.2],
+      "progression/summary": [2.7, 4.3, 6.7],
+      "ai/daily-tasks": [2.9, 5.7, 6.5],
+      "quests": [3.0, 5.3, 9.2],
+      "quests/catalogue": [3.0, 4.5, 5.9],
+      "quests/recommended": [3.1, 4.9, 5.3],
+      "life-engine/streak": [3.9, 12.9, 26.3],
+      "life-engine/daily-plan": [5.3, 9.6, 13.6],
+      "post-ai-goals": [3.5, 4.6, 4.6]
+    },
+    "slow_query_findings": "none (endpoint latency bounds DB latency, all <15ms p50)",
+    "n_plus_one": "none (buildAnalyticsState fans out ~9 queries in one Promise.all, each bounded)",
+    "unbounded_queries": "none (XP history capped limit(400); all hot paths indexed)",
+    "index_coverage": "complete on all userId hot paths"
+  },
+  "resource_lifecycle": {
+    "pg_pool": "bounded; 'error' handler drains dead clients + auto-reconnect",
+    "sse_registry": "only process-global Map; register/unregister symmetric; verified 0 after 100-loop churn",
+    "life_engine_sets_maps": "request-local, GC'd on return",
+    "rate_limiter": "in-memory, entries expire per window"
+  },
+  "failure_injection_matrix": {
+    "db_unavailable": { "observed": "readyz 503, healthz 200, server survives", "logged": "readiness.failed + database.pool.error", "correlated": true, "recovered": true },
+    "db_timeout": { "observed": "not separately injected (no statement_timeout)", "logged": null, "correlated": null, "recovered": null },
+    "transaction_failure": { "observed": "int4-overflow rolls back completion+reward", "logged": "classified error", "correlated": true, "recovered": true },
+    "xp_reward_failure": { "observed": "zero XP txn on failed INSERT", "logged": "classified error", "correlated": true, "recovered": true },
+    "duplicate_reward": { "observed": "xp.award.replayed, zero minted", "logged": "xp.award.replayed", "correlated": true, "recovered": true },
+    "ai_unavailable": { "observed": "generic 503 / original text returned", "logged": "external.groq.failed", "correlated": true, "recovered": true },
+    "sse_disconnect": { "observed": "registry -> 0 after churn", "logged": "sse.connection.closed", "correlated": true, "recovered": true },
+    "rate_limit": { "observed": "429 + anonymized warn", "logged": "rate_limit.rejected", "correlated": true, "recovered": true },
+    "invalid_auth": { "observed": "401", "logged": "auth.failed", "correlated": true, "recovered": true },
+    "unexpected_exception": { "observed": "generic 500, no stack to client", "logged": "global handler", "correlated": true, "recovered": true }
+  },
+  "findings": [
+    { "id": "D-1", "class": "D", "summary": "PostgreSQL restart crashed the whole API server (unhandled pool 'error' event)", "disposition": "FIXED + regression test db-pool-resilience.test.ts" },
+    { "id": "C-1", "class": "C", "summary": "auth/refresh limiters did not emit rate_limit.rejected", "disposition": "FIXED" },
+    { "id": "C-2", "class": "C", "summary": "database.pool.error lacked pino-shaped fields", "disposition": "FIXED" },
+    { "id": "A-1", "class": "A", "summary": "database.pool.error used process.env.HOSTNAME (empty in some containers)", "disposition": "FIXED -> os.hostname()" }
+  ],
+  "regression": {
+    "full_suite": "344/344 (40 files)",
+    "stage21_concurrency_soak": "36/36 x 3 runs (no flake)",
+    "stage22_tests": "25/25",
+    "pool_resilience_tests": "3/3",
+    "typecheck": "PASS",
+    "build": "PASS",
+    "secret_scan": "clean",
+    "browser_chaos": "12/12 (mobile + desktop, real Chromium) — re-verified in prior run, unchanged server paths"
+  },
+  "release_gate": {
+    "no_unresolved_D": true,
+    "critical_operations_observable": true,
+    "request_correlation_verified": true,
+    "health_readiness_verified": true,
+    "db_failures_observable": true,
+    "xp_anomalies_detectable": true,
+    "replay_idempotency_diagnosable": true,
+    "sse_lifecycle_verified": true,
+    "external_failures_observable": true,
+    "diagnostic_endpoints_secure": true,
+    "no_secret_leakage": true,
+    "recovery_verified": true,
+    "stage21_green": true,
+    "full_regression_passes": true
+  }
+}

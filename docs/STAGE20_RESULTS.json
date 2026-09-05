@@ -1,0 +1,255 @@
+{
+  "stage": 20,
+  "title": "LifeXP Production Hardening & Anti-Gaming Closure",
+  "status": "COMPLETE",
+  "verdict": "GREEN",
+  "baseline": {
+    "commit": "27c2af917bf6e981031afd3b3dcd70164b77fa26",
+    "recovered_from_remote": true,
+    "environment": "postgres 18.4 @ 127.0.0.1:5434 (embedded-postgres cluster /tmp/realpg/data)",
+    "toolchain": "pnpm + node v22 + drizzle + vitest",
+    "tests_before": "204/204 (16 files)",
+    "typecheck_before": "PASS"
+  },
+  "parts": {
+    "1_xp_economy_anti_gaming": {
+      "status": "CLOSED",
+      "xp_award_sources": [
+        {
+          "sourceType": "QUEST_COMPLETION",
+          "route": "routes/quests.ts POST /:id/complete",
+          "idempotencyKey": "quest_complete_${userId}_${questTemplateId}",
+          "xp": "progressionConfig.xp ?? 50",
+          "repeatability": "once per (user, template) — template-scoped",
+          "authorization": "authenticated user only; server-side award"
+        },
+        {
+          "sourceType": "DAILY_TASK",
+          "route": "routes/ai.ts POST /daily-task/:id/complete",
+          "idempotencyKey": "daily_task_${taskId}",
+          "xp": "task.xpReward",
+          "repeatability": "once per task instance",
+          "authorization": "authenticated user only; server-side award"
+        }
+      ],
+      "mechanism": "source-level reward idempotency + repeatability controls (no hidden daily cap)",
+      "controls": [
+        "template-scoped idempotency key prevents repeated same-template quest XP",
+        "COMPLETED template cannot be re-assigned (409 on /assign)",
+        "negative / NaN / non-finite XP and attribute deltas dropped",
+        "client cannot award XP directly (no award endpoint; progression routes read-only)",
+        "concurrent award race resolved via unique-constraint catch (23505) → alreadyAwarded"
+      ],
+      "daily_cap": "NOT implemented — not justified by product rules (self-tracking product, sqrt level curve already bounds visible rank); source-level idempotency preferred per scope decision"
+    },
+    "2_completion_rate_limiting": {
+      "status": "CLOSED",
+      "limiter": "makeMutationLimiter() — windowMs 600000, limit 120, key user.sub ?? 'unauthenticated'",
+      "mounted_on": ["quest assign", "quest progress", "quest abandon", "quest complete", "daily-task complete"],
+      "response": "429 { message: 'Too many requests — please slow down' }",
+      "justification": "authenticated-user identity primary limiter key; burst 120/10min does not interfere with normal gameplay",
+      "not_rate_limited": "read-only endpoints (no mutation, no justification)"
+    },
+    "3_explainability_consistency": {
+      "status": "CLOSED",
+      "root_cause": "WEAK_AREA reason driven only by single weakestAttribute/scoring factor while detectWeaknesses reports a multi-area set",
+      "fix": "reasonCodes() emits WEAK_AREA for factor.weakness >= 0.7 OR weakAreas.has(category); weakAreas computed from detectWeaknesses(state) in both recommendTasks and recommendQuests",
+      "before": "532 weakness_vs_reason contradictions",
+      "after": "0 weakness_vs_reason; remaining total=2 (momentum_vs_difficulty only)"
+    },
+    "4_goal_lifecycle": {
+      "status": "PASS (no defect reproduced)",
+      "model": "single free-text ai_user_goals row per user (upsert on unique userId); no per-goal state machine; latest write wins; validation string length >= 5",
+      "tests": 8,
+      "findings": "IDOR safe (user B cannot read/overwrite user A); concurrent updates atomic; decomposition deterministic"
+    },
+    "5_progression_integrity": {
+      "status": "PASS",
+      "tests": 7,
+      "invariants": [
+        "totalXp monotonic (SQL-level increment, race-free)",
+        "level = floor(sqrt(totalXp/100)) + 1 never decreases",
+        "attributes never negative",
+        "concurrent mutations atomic; failed transaction leaves no partial award",
+        "user A cannot mutate user B"
+      ]
+    },
+    "6_determinism": {
+      "status": "PASS",
+      "tests": 6,
+      "clock": "vi.useFakeTimers + FIXED_NOW = 2026-01-15T12:00:00.000Z",
+      "note": "engine outputs byte-identical for identical state; legitimate time-dependence (daily-plan date, rotation) isolated to single JS clock"
+    },
+    "7_longitudinal_adversarial": {
+      "status": "PASS",
+      "tests": 8,
+      "horizon_days": 365,
+      "personas": ["base library (A-J)", "K-compulsive", "L-superactive", "M-goalflipper", "N-repeatedfailure"],
+      "invariants": [
+        "totalXp monotonic and === sum(xpEvents.amount) (no hidden minting)",
+        "level monotonic",
+        "stale weakness clears by day 40+",
+        "goal switch aligns recommendations within 3-day window",
+        "no personalization collapse",
+        "compulsive level bounded < 60",
+        "repeated failure keeps difficulty ladder stable",
+        "attributes non-negative and finite"
+      ]
+    },
+    "8_performance": {
+      "status": "PASS",
+      "tests": 4,
+      "users_10000_total_ms": 841,
+      "users_10000_per_user_ms": 0.0841,
+      "events_10000_ms": 0.5,
+      "events_100000_ms": 44.6,
+      "quests_1000_ms": 0.5,
+      "findings": "no demonstrated N+1 or quadratic behavior; analytics layer uses fixed 8+1 parallel queries"
+    },
+    "9_security_regression": {
+      "status": "PASS",
+      "tests": 7,
+      "coverage": [
+        "unauthenticated access (401)",
+        "SQL-injection-shaped input (safe)",
+        "oversized input (413)",
+        "malformed progress values (rejected/clamped, no 500, no overflow, no XP)",
+        "quest IDOR (user B cannot mutate user A)",
+        "profile isolation",
+        "replay idempotency (duplicate completion → alreadyAwarded)"
+      ]
+    },
+    "10_ai_boundary": {
+      "status": "PASS",
+      "tests": 6,
+      "facts": [
+        "no deterministic engine module imports groq-sdk",
+        "deterministic chat intents work with GROQ_API_KEY absent (200, engine answer)",
+        "open-ended chat returns graceful 503 when GROQ_API_KEY absent",
+        "deterministic engines never mutate XP/progression",
+        "deterministic chat answers do not award XP",
+        "deterministic intent layer does not bypass authorization (401 without token)"
+      ]
+    },
+    "11_browser_e2e": {
+      "status": "PASS",
+      "infrastructure": "real Chromium 149.0.7827.0 (@sparticuz/chromium@149.0.0, npm-distributed binary) + puppeteer-core 25.9.0, headless shell, NSS/AL2023 shared libraries supplied via LD_LIBRARY_PATH",
+      "app_stack": "API server (esbuild dist) on :8080 against real PostgreSQL 18.4; static web build (vite) served via same-origin proxy on :9000 (/api forwarded)",
+      "viewports": ["mobile 390x844", "desktop 1440x900"],
+      "journeys_passed": 36,
+      "journeys_total": 36,
+      "journey_matrix": [
+        "root -> auth redirect",
+        "register form renders",
+        "signup -> onboarding",
+        "onboarding step1->2 (welcome -> baseline)",
+        "onboarding step2->3 (baseline -> focus areas)",
+        "onboarding step3->4 (focus areas -> class)",
+        "onboarding step4->5 (class -> complete)",
+        "onboarding -> dashboard",
+        "dashboard level/XP renders",
+        "daily plan/tasks render",
+        "quests page renders",
+        "goals surface renders",
+        "profile page renders",
+        "logout clears session (token gone)",
+        "login -> dashboard",
+        "session token persisted",
+        "no uncaught page exceptions",
+        "no fatal console errors"
+      ],
+      "evidence": "dashboard rendered real engine output — level '1', rank 'Initiate', '0 / 1,000 XP to next level', 'Total earned: 0 XP', 'DAILY PROGRESS', 'TODAY'S TASKS' (e.g. 'Do 3 sets of 10 push-ups'), 'ATTRIBUTES', 'TODAY'S TIP'",
+      "notes": "auth rate limiter (10/15min per IP) was independently observed returning 429 during repeated runs — confirmed functional; single clean run of both viewports uses 6 auth requests, under the limit"
+    },
+    "12_release_decision": {
+      "verdict": "GREEN",
+      "defect_classes": {
+        "A": 0,
+        "B": 0,
+        "C": 0,
+        "D": 0
+      },
+      "blockers": []
+    }
+  },
+  "findings": [
+    {
+      "id": "AG-1",
+      "class_after": "CLOSED (was C in Stage 19)",
+      "title": "Unbounded XP farming via repeatable quest completion",
+      "reproduce": "assign→complete→assign→complete the same ACTIVE template repeatedly awarded XP per instance (new questId each time)",
+      "root_cause": "idempotency was per quest instance (questId), not per (user, template); no guard against re-assigning an already-completed template",
+      "fix": "template-scoped idempotencyKey quest_complete_${userId}_${questTemplateId}; /assign returns 409 on COMPLETED template",
+      "regression_test": "anti-gaming.test.ts (13 tests)"
+    },
+    {
+      "id": "AG-2",
+      "class_after": "CLOSED (was B in Stage 19)",
+      "title": "No rate limiting on quest/task completion endpoints",
+      "reproduce": "completion endpoints were unthrottled; a malicious client could flood mutations",
+      "fix": "makeMutationLimiter() mounted on assign/progress/abandon/complete + daily-task complete, keyed by authenticated user",
+      "regression_test": "rate-limiting.test.ts (3 tests)"
+    },
+    {
+      "id": "CONC-1",
+      "class": "D",
+      "title": "Concurrent awardXp race surfaced 500 (unique-constraint violation)",
+      "reproduce": "two concurrent awards with same idempotencyKey both passed inner re-check, second INSERT hit unique constraint → 500",
+      "root_cause": "READ COMMITTED allows both transactions to pass the SELECT re-check before either commits",
+      "fix": "catch 23505 on xp_transactions_idempotency_key_unique and return alreadyAwarded",
+      "regression_test": "progression-integrity.test.ts (concurrent distinct + same-key awards)"
+    },
+    {
+      "id": "EXPL-1",
+      "class": "C",
+      "title": "532 weakness_vs_reason contradictions (weak-area recommendation without WEAK_AREA reason code)",
+      "reproduce": "recommendTasks surfaced ENDURANCE weak area but reasonCodes lacked WEAK_AREA",
+      "root_cause": "WEAK_AREA driven only by single scoring factor, not the multi-area detectWeaknesses set",
+      "fix": "emit WEAK_AREA for weakness>=0.7 OR weakAreas membership; compute weakAreas from detectWeaknesses in both recommendation paths",
+      "regression_test": "explainability.test.ts (6 tests)"
+    },
+    {
+      "id": "SAN-1",
+      "class": "C",
+      "title": "Malformed/negative/NaN/huge XP and attribute deltas accepted into progression",
+      "reproduce": "awardXp with negative/NaN/huge values could pollute user_attributes and xp_transactions",
+      "fix": "sanitize: drop negative/NaN/non-finite; clamp oversized; PATCH progress path awards no XP",
+      "regression_test": "security-regression.test.ts (malformed progress test)"
+    }
+  ],
+  "tests": {
+    "total": 270,
+    "passed": 270,
+    "failed": 0,
+    "files": 25,
+    "baseline": 204,
+    "new": 66,
+    "runs": "3 consecutive full runs all 270/270 (no flake)",
+    "typecheck": "PASS",
+    "build": "PASS"
+  },
+  "schema_changes": "NO",
+  "ai_changes": "NONE",
+  "quality_score": {
+    "xp_economy": "PASS (source-level idempotency; no hidden cap)",
+    "anti_gaming": "PASS (AG-1 + AG-2 closed)",
+    "completion_rate_limiting": "PASS (user-keyed, sensible burst)",
+    "progression_integrity": "PASS",
+    "goal_lifecycle": "PASS (no defect reproduced)",
+    "explainability_consistency": "PASS (0 weakness_vs_reason)",
+    "determinism": "PASS",
+    "longitudinal_adversarial": "PASS",
+    "performance": "PASS",
+    "security": "PASS",
+    "ai_boundary": "PASS",
+    "browser_e2e": "PASS"
+  },
+  "final_report": {
+    "DEFECTS_FOUND": 5,
+    "DEFECTS_FIXED": 5,
+    "DEFECT_CLASSES": "D x1 (concurrency), C x2 (explainability, sanitization), CLOSED x2 (AG-1 was C, AG-2 was B in Stage 19)",
+    "TEST_COUNT": "270/270 (25 files)",
+    "VERDICT": "GREEN",
+    "RECOMMENDED_NEXT_STEP": "Ship. Non-blocking follow-ups: (1) add a per-day XP budget / template repeatability policy only if leaderboard/social competitive stakes ship; (2) optional unique index on ai_daily_tasks(user_id, date) to harden the cache-then-insert daily-task write"
+  }
+}

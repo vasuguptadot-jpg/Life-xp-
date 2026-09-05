@@ -1,0 +1,147 @@
+{
+  "stage": 13,
+  "timestamp": "2026-08-31T20:17:48Z",
+  "commit": "d416430733b700c8400198ee5ec7ab72d05c5ee1",
+  "branch": "arena/01a05271-life-xp",
+  "git": {
+    "head": "d416430733b700c8400198ee5ec7ab72d05c5ee1",
+    "remote_head": "d416430733b700c8400198ee5ec7ab72d05c5ee1",
+    "synchronized": true,
+    "working_tree_clean": true,
+    "tracked_files": 160,
+    "untracked_files": 0,
+    "reset_note": "Environment reset between stages (local HEAD reverted to legacy 25cbdf2, 2422 files). Recovered exact remote commit d416430 via git fetch + hard reset; working tree restored to the minimized 160-file state. No legitimate newer work overwritten.",
+    "node": "v22.22.3",
+    "pnpm": "10.34.5",
+    "packageManager_lockfile": "pnpm@10.34.5 (lockfile unmutated)"
+  },
+  "database": {
+    "result": "PASS",
+    "real": true,
+    "engine": "PostgreSQL 18.4 (real binaries, not PGlite)",
+    "driver": "pg 8.22.0 (real PostgreSQL wire protocol)",
+    "endpoint": "127.0.0.1:5434 database=lifexp",
+    "provisioning_note": "re-provisioned via embedded-postgres@18.4.0-beta.17 (binaries ship in @embedded-postgres/linux-x64 npm package; registry.npmjs.org reachable)",
+    "migrations": "applied 0000_tired_excalibur + 0001_puzzling_the_santerians (idempotent)",
+    "seed": "7 archetypes created (idempotent)",
+    "automated_tests_against_real_pg": "40/40 PASS (7 files, 7.35s)"
+  },
+  "ai": {
+    "result": "BLOCKED — REAL PROVIDER CREDENTIAL UNAVAILABLE",
+    "missing_infrastructure": "GROQ_API_KEY environment variable (a real, valid Groq key)",
+    "reason": "No GROQ_API_KEY present in the environment; .env.example carries only an empty placeholder. Fabricating a key would be a false PASS and is prohibited.",
+    "degradation_verified_against_real_pg": {
+      "ai_chat": "503 (graceful no-key)",
+      "ai_daily_tasks": "200 (empty)",
+      "ai_life_tip": "200 (fallback)",
+      "server_stable": true,
+      "credential_leak": "none"
+    },
+    "live_generation": "UNVERIFIED",
+    "closing_requirement": "supply a real GROQ_API_KEY; restart the API; assert POST /api/ai/chat returns 200 with a real provider response (schema, reasonable latency, no credential leak), plus daily-tasks/life-tip live generation, provider-failure/timeout handling, and recovery of non-AI endpoints."
+  },
+  "object_storage": {
+    "result": "BLOCKED — INFRASTRUCTURE UNAVAILABLE",
+    "missing_infrastructure": "Replit object-storage sidecar at 127.0.0.1:1106 (external-account /credential and /token endpoints) backed by Google Cloud Storage",
+    "reason": "objectStorage.ts constructs @google-cloud/storage with credential_source.url=http://127.0.0.1:1106/credential and token_url=http://127.0.0.1:1106/token. Connection to 127.0.0.1:1106 is refused (no sidecar); no GCS/object-storage credentials exist in the environment. Static ACL review and fail-safe 503 behavior are NOT a live-storage PASS.",
+    "closing_requirement": "start the Replit object-storage sidecar on 127.0.0.1:1106 with a GCS project; then exercise upload/retrieval/ACL/isolation/delete/signed-URL/input-security/error-handling and credential non-leakage against the real sidecar."
+  },
+  "browser_e2e": {
+    "result": "PASS",
+    "real_browser": true,
+    "engine": "Chromium 149.0.7827.0 (real browser binary)",
+    "driver": "puppeteer-core 25.9.0",
+    "browser_source": "@sparticuz/chromium@149.0.0 (Chromium binary ships in the npm tarball) + bundled AL2023 shared libs (libnspr4.so, libnss3.so, libnssutil3.so from al2023.tar.br), launched with LD_LIBRARY_PATH",
+    "viewports": [
+      { "name": "mobile", "width": 390, "height": 844 },
+      { "name": "desktop", "width": 1440, "height": 900 }
+    ],
+    "journey_results": {
+      "rootRedirectsToLogin": "PASS (both viewports)",
+      "signup": "PASS (register -> auto sign-in -> onboarding)",
+      "onboarding": "PASS (5 steps: intro, baseline, focus areas, archetype class, complete)",
+      "dashboardXp": "PASS (XP rendering)",
+      "dashboardLevel": "PASS (level rendering)",
+      "navigation": "PASS (Home/Quests/Feed/Messages/Profile via nav links)",
+      "createPost": "PASS (profile -> New Post modal -> Share Post)",
+      "feedRendersPost": "PASS (created post visible in feed)",
+      "like": "PASS",
+      "messagingSend": "PASS (real-time SSE round-trip: message sent and received via EventSource)",
+      "leaderboard": "PASS",
+      "sessionPersistence": "PASS (token survives reload)",
+      "logout": "PASS (Profile -> Sign Out -> token cleared + redirect to /auth/login)",
+      "invalidCredentials": "PASS (error surfaced)",
+      "signin": "PASS"
+    },
+    "console_page_errors": "none (no uncaught exceptions, no fatal console errors)",
+    "expected_non_defect_network_notes": [
+      "fonts.googleapis.com requestfailed (ERR_CONNECTION_CLOSED) — Google Fonts host egress-blocked in sandbox; the Inter font falls back to system fonts. Infrastructure limitation, not an app defect.",
+      "HTTP 401 /api/auth/signin — the intentional wrong-password invalid-credentials test."
+    ]
+  },
+  "security": {
+    "result": "PASS (real PostgreSQL)",
+    "details": {
+      "cross_user_post_delete": 404,
+      "malformed_json": 400,
+      "oversized_payload_200kb": 413,
+      "sql_injection": "safe (no 500; parameterized)",
+      "invalid_uuid_target": "safe 4xx (no crash)",
+      "sse_membership": "member 200 / non-member 403 / garbage-token 401",
+      "secret_leakage": "none in logs or responses",
+      "stack_trace_leakage": "none to clients"
+    }
+  },
+  "concurrency": {
+    "result": "PASS (real PostgreSQL)",
+    "details": {
+      "concurrent_like_6x": "likes_count = 1 (idempotent)",
+      "concurrent_unlike_3x": "likes_count = 0",
+      "refresh_rotation": "atomic (covered by refresh-rotation.test.ts, 40/40 suite)",
+      "connection_pool_failures": "none",
+      "race_induced_500": "none"
+    }
+  },
+  "observability": {
+    "result": "PASS (real PostgreSQL)",
+    "no_secrets_in_logs": true,
+    "no_jwt_in_logs": true,
+    "no_authorization_headers_in_logs": true,
+    "sse_token_query_parameter_not_logged": true,
+    "no_stack_in_client_responses": true,
+    "low_findings": [
+      "server-side stack traces for CORS/JSON rejection (logs only)",
+      "no SIGTERM drain handler (clean exit, no drain)",
+      "in-memory rate limiter resets on process restart (no shared store)"
+    ]
+  },
+  "automated_tests": {
+    "result": "PASS",
+    "count": "40/40",
+    "files": 7,
+    "database": "real PostgreSQL 18.4 (TEST_DATABASE_URL pointed at real PG)",
+    "duration": "7.35s"
+  },
+  "build": {
+    "result": "PASS",
+    "typecheck": "PASS (0 errors, all packages)",
+    "api_build": "PASS (esbuild production bundle)",
+    "web_build": "PASS (vite production build, 1858 modules)"
+  },
+  "blockers": [
+    "AI: real GROQ_API_KEY unavailable (degradation verified; live generation UNVERIFIED)",
+    "Object storage: Replit sidecar 127.0.0.1:1106 + GCS unavailable"
+  ],
+  "high_risks": [],
+  "medium_risks": [
+    "Production-runtime dependency uuid <11.1.1 (via @google-cloud/storage -> gaxios; MODERATE, low exploitability) — no blind upgrade",
+    "Real-DB validation ran against embedded-postgres (genuine PostgreSQL 18.4) rather than a managed service; production still needs a managed/persistent instance with backups and monitoring"
+  ],
+  "low_risks": [
+    "No SIGTERM drain handler",
+    "quests/recommended list uncapped (small public catalogue)",
+    "In-memory rate limiter resets on restart",
+    "Server-side stack traces for CORS/JSON rejection (logs only)"
+  ],
+  "final_decision": "YELLOW (CONDITIONAL GO)"
+}

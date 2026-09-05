@@ -1,0 +1,145 @@
+{
+  "stage": 12,
+  "timestamp": "2026-08-31T06:53:35Z",
+  "commit": "c472b3750a59abe535f91a6bc0ad158c4bedaa7a",
+  "branch": "arena/01a05271-life-xp",
+  "git": {
+    "head": "c472b3750a59abe535f91a6bc0ad158c4bedaa7a",
+    "remote_head": "c472b3750a59abe535f91a6bc0ad158c4bedaa7a",
+    "synchronized": true,
+    "working_tree_clean": true,
+    "tracked_files": 157,
+    "untracked_files": 0,
+    "unexpected_modifications": 0,
+    "node": "v22.22.3",
+    "pnpm": "10.34.5",
+    "packageManager_lockfile": "pnpm@10.34.5 (lockfile unmutated)"
+  },
+  "build": {
+    "result": "PASS",
+    "evidence": "pnpm --filter @workspace/api-server build (production bundle dist/index.mjs); full workspace build api+web+libs; typecheck 0 errors",
+    "frozen_lockfile": "PASS (pnpm 10.34.5, lockfile unmutated)"
+  },
+  "database": {
+    "result": "PASS",
+    "real": true,
+    "engine": "PostgreSQL 18.4 (real binaries, not PGlite, not a mock)",
+    "binary": "/tmp/realpg/node_modules/@embedded-postgres/linux-x64/native/bin/postgres (embedded-postgres 18.4.0-beta.17, downloaded over HTTPS from Maven Central)",
+    "driver": "pg 8.22.0 (real PostgreSQL wire protocol)",
+    "endpoint": "127.0.0.1:5434 database=lifexp (DATABASE_URL supplied; value not displayed)",
+    "connection_verified": "CONNECTED: PostgreSQL 18.4 (databases: postgres, lifexp)",
+    "migrations": {
+      "result": "PASS",
+      "applied": ["0000_tired_excalibur (884a7d1d)", "0001_puzzling_the_santerians (ddc540f7)"],
+      "idempotent_rerun": "PASS (2 journal rows, no duplicate apply)"
+    },
+    "schema_contract": {
+      "result": "PASS (exact)",
+      "tables": "23/23", "columns": "154/154", "primary_keys": "20",
+      "foreign_keys": "25", "unique_constraints": "16", "indexes": "46",
+      "missing_tables": "none", "missing_columns": "none", "extra_columns": "none"
+    },
+    "real_type_verification": {
+      "hashtags_array": "ARRAY/_text (real text[] column, round-trip ['a','b'] length 2)",
+      "gen_random_uuid": "built-in present (no PGlite polyfill assumption)"
+    },
+    "seed": {
+      "result": "PASS",
+      "archetypes_run1": "7 created",
+      "archetypes_run2": "0 created / 7 skipped (idempotent)"
+    },
+    "test_suite_against_real_pg": "PASS — 40/40 (7 test files, TEST_DATABASE_URL pointed at real PostgreSQL)"
+  },
+  "ai": {
+    "result": "BLOCKED — REAL PROVIDER CREDENTIAL UNAVAILABLE",
+    "missing_infrastructure": "GROQ_API_KEY environment variable",
+    "reason": "No live GROQ key can be supplied in this sandbox; fabricating one would produce a false PASS and is prohibited.",
+    "degradation_verified_against_real_pg": {
+      "ai_chat": "503 (graceful no-key)", "ai_daily_tasks": "200 (empty)", "ai_life_tip": "200 (fallback)",
+      "server_stable": true, "credential_leak": "none"
+    },
+    "live_generation": "UNVERIFIED",
+    "closing_command": "set GROQ_API_KEY=<real key>; restart API; POST /api/ai/chat with a real prompt and assert 200 + persisted response + malformed-input + timeout/failure handling + key non-leakage."
+  },
+  "object_storage": {
+    "result": "BLOCKED — INFRASTRUCTURE UNAVAILABLE",
+    "missing_infrastructure": "Replit object-storage sidecar at 127.0.0.1:1106 (external_account token/credential endpoints) backed by Google Cloud Storage",
+    "reason": "objectStorage.ts constructs @google-cloud/storage with credential_source.url=http://127.0.0.1:1106/credential and token_url=http://127.0.0.1:1106/token; the sidecar does not exist in this sandbox and cannot be provisioned.",
+    "not_converted_to_pass": "static ACL/traversal review and fail-safe 503 behavior were NOT treated as a live-storage PASS.",
+    "closing_command": "start the Replit object-storage sidecar on 127.0.0.1:1106 with a GCS project; then exercise upload/retrieval/ACL-policy/traversal-isolation/cleanup and credential non-leakage against the real sidecar."
+  },
+  "browser_e2e": {
+    "result": "BLOCKED — INFRASTRUCTURE",
+    "attempts_made": [
+      "npx playwright install chromium x4 — ECONNRESET from cdn.playwright.dev",
+      "npx puppeteer browsers install chrome — DefaultProvider ECONNRESET (storage.googleapis.com)",
+      "direct curl to storage.googleapis.com — SSL_ERROR_SYSCALL",
+      "@sparticuz/chromium@149.0.0 via npm — SUCCEEDED (real 199MB Chromium binary at /tmp/chromium)"
+    ],
+    "exact_missing_infrastructure": "Chromium 149 binary launches but aborts: 'error while loading shared libraries: libnspr4.so, libnss3.so, libnssutil3.so'. These Debian `libnss3`/`libnspr4` shared libraries cannot be installed because apt uses HTTP:80 (blocked) and all Debian/Ubuntu mirror HTTPS egress is blocked; no npm package ships the .so files.",
+    "not_converted_to_pass": "static frontend serving and build verification were NOT treated as a browser E2E PASS.",
+    "closing_command": "in an environment with apt egress: `apt-get install -y libnss3 libnspr4` (or `npx playwright install --with-deps chromium`); then run a Playwright/Puppeteer journey across mobile+desktop viewports with console/network capture against the live backend."
+  },
+  "security": {
+    "result": "PASS (real PostgreSQL)",
+    "details": {
+      "malformed_uuid": 400, "malformed_json": 400, "unexpected_json_types": 400,
+      "nul_byte": "sanitized (no 500)", "sql_injection": "429 rate-limit (parameterized queries)",
+      "oversized_payload_200kb": 413, "invalid_jwt": 401, "expired_jwt": 401,
+      "revoked_refresh": 401, "cross_user_post_delete": 404, "cross_user_quest_progress": 404,
+      "cross_user_quest_complete": 404, "cross_user_messaging": 403, "cross_user_conversation": 403,
+      "sse_membership": "member 200 / non-member 403 / garbage 401",
+      "cors": "allowed origin 204+credentials; disallowed origin no-ACAO",
+      "secret_leakage": "none in logs or responses", "stack_trace_leakage": "none to clients"
+    }
+  },
+  "concurrency": {
+    "result": "PASS (real PostgreSQL)",
+    "details": {
+      "triple_duplicate_like": "likes_count=3 exact",
+      "triple_unlike": "0 exact",
+      "duplicate_follow": "idempotent",
+      "refresh_rotation": "atomic (200/401, single success per token)",
+      "concurrent_quest_progress_6x": "deterministic final progress 3.00, status IN_PROGRESS (no corruption)",
+      "concurrent_message_send_6x": "6x201, message count 6 exact",
+      "connection_pool_failures": "none", "race_induced_500": "none"
+    }
+  },
+  "observability": {
+    "result": "PASS (real PostgreSQL)",
+    "no_secrets_in_logs": true,
+    "no_jwt_in_logs": true,
+    "no_authorization_headers_in_logs": true,
+    "sse_token_query_parameter_not_logged": true,
+    "no_stack_in_client_responses": true,
+    "low_findings": [
+      "server-side stack traces for CORS/JSON rejection (logs only)",
+      "no SIGTERM drain handler (clean exit, no drain)",
+      "in-memory rate limiter resets on process restart (no shared/Redis store)"
+    ]
+  },
+  "automated_tests": {
+    "result": "PASS",
+    "count": "40/40",
+    "files": 7,
+    "database": "real PostgreSQL 18.4 (TEST_DATABASE_URL pointed at real PG)",
+    "duration": "7.19s"
+  },
+  "blockers": [
+    "AI: real GROQ_API_KEY unavailable (degradation verified)",
+    "Object storage: Replit sidecar 127.0.0.1:1106 + GCS unavailable",
+    "Browser E2E: Chromium obtained but missing libnspr4/libnss3/libnssutil3 (apt/mirror egress blocked)"
+  ],
+  "high_risks": [],
+  "medium_risks": [
+    "Production-runtime dependency uuid <11.1.1 (via @google-cloud/storage -> gaxios; MODERATE, low exploitability) — no blind upgrade",
+    "Real-DB validation ran against embedded-postgres (genuine PostgreSQL 18.4) rather than a managed service; production still needs a managed/persistent instance with backups and monitoring"
+  ],
+  "low_risks": [
+    "No SIGTERM drain handler (clean exit, no request drain)",
+    "quests/recommended list uncapped (small public catalogue)",
+    "In-memory rate limiter resets on restart",
+    "Server-side stack traces for CORS/JSON rejection (logs only)"
+  ],
+  "final_decision": "YELLOW (CONDITIONAL GO)"
+}

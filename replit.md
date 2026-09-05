@@ -7,7 +7,6 @@ A gamified self-improvement app — "real life as a game." Users level up attrib
 | Layer | Stack |
 |---|---|
 | Web frontend | React 19, Vite, Tailwind CSS v4, Radix UI, Wouter, React Query |
-| Mobile app | Expo 54 (React Native), Expo Router |
 | API server | Express 5, Node.js, JWT auth, Zod validation, Pino logging |
 | Database | PostgreSQL (Replit managed) via Drizzle ORM |
 | AI | Groq SDK — llama-3.3-70b-versatile |
@@ -20,7 +19,20 @@ All services start automatically via Replit workflows:
 
 - **API Server** (`artifacts/api-server`) — `pnpm --filter @workspace/api-server run dev`
 - **Web** (`artifacts/web`) — `pnpm --filter @workspace/web run dev`
-- **Mobile** (`artifacts/mobile`) — `pnpm --filter @workspace/mobile run dev`
+
+## Migrations
+
+Apply migrations to a fresh or existing database:
+
+```bash
+pnpm --filter @workspace/db run migrate
+```
+
+Generate a new migration after editing the schema:
+
+```bash
+pnpm --filter @workspace/db run generate
+```
 
 ## Environment variables / secrets
 
@@ -30,16 +42,15 @@ All services start automatically via Replit workflows:
 | `SESSION_SECRET` | ✅ | JWT signing secret |
 | `GROQ_API_KEY` | ✅ | AI coach, daily tasks, life tips |
 | `PORT` | ✅ | Managed by Replit automatically |
+| `BASE_PATH` | ✅ | Web base path (auto-set by Replit; "/" locally) |
+
+See `.env.example` for the full documented list (including CORS and
+object-storage variables).
 
 ## Database
 
-Schema is managed with Drizzle ORM. To push schema changes to the dev database:
-
-```bash
-pnpm --filter @workspace/db run push
-```
-
-Schema lives in `lib/db/src/schema/`.
+Schema is managed with Drizzle ORM. Schema lives in `lib/db/src/schema/`;
+versioned migrations live in `lib/db/migrations/`.
 
 ## Key packages
 

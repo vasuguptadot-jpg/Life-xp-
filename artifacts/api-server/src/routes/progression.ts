@@ -15,9 +15,17 @@ import {
   attributeHistoryTable,
 } from "@workspace/db/schema";
 import { requireAuth } from "../lib/auth";
+import { parseLimit } from "../lib/pagination";
+import { composeDailyPlan } from "../lib/life-engine";
 
 const router = Router();
 router.use(requireAuth);
+
+// GET /api/progression/daily-plan — deterministic Daily Plan Engine
+// (also available at /api/life-engine/daily-plan)
+router.get("/daily-plan", async (req, res) => {
+  res.json(await composeDailyPlan(req.user!.sub));
+});
 
 // GET /api/progression/summary
 router.get("/summary", async (req, res) => {
@@ -41,7 +49,7 @@ router.get("/summary", async (req, res) => {
 // GET /api/progression/attribute-history
 router.get("/attribute-history", async (req, res) => {
   const userId = req.user!.sub;
-  const limit = Math.min(Number(req.query.limit) || 50, 200);
+  const limit = parseLimit(req.query.limit, 50, 200);
 
   const history = await db
     .select()

@@ -1,0 +1,186 @@
+{
+  "stage": "STAGE26",
+  "title": "Production Performance, Scalability & Load-Integrity Audit",
+  "classification": "YELLOW",
+  "decision_phrase": "STAGE 26 decision: YELLOW — two D-class defects (negative/non-numeric pagination limit and deeply-nested JSON both returning HTTP 500) were reproduced, root-caused, minimally fixed with regression tests, and re-verified with a full 433/433 regression; one measured C-class finding remains (bcryptjs password hashing runs on the main event loop, up to ~800ms cross-user latency under 8 concurrent auth attempts). No load-induced corruption, XP ledger exactly correct, no duplicate/lost rewards, no cross-user leakage, no resource leaks, no unbounded list behavior.",
+  "baseline": {
+    "commit": "4420db45eb24cbc9cdf77090adc94b9616a9023e",
+    "postgres": "18.4 (127.0.0.1:5434)",
+    "node": "v22.22.3",
+    "pnpm": "10.34.5",
+    "migrations_journal_ids": [1, 2, 3],
+    "full_suite": "426/426 (43 files)",
+    "typecheck": "PASS",
+    "build": "PASS (api-server + web)",
+    "secret_scan": "clean"
+  },
+  "final_regression": "433/433 (43 files) — 426 baseline + 7 new pagination/deep-nesting regression tests",
+  "dataset_scaling": {
+    "scale_10000_users": {
+      "users": 10000,
+      "xp_transactions": 20000,
+      "user_levels": 10000,
+      "user_goals": 10000,
+      "ai_user_goals": 10000,
+      "ai_daily_tasks": 30000,
+      "posts": 20000,
+      "follows": 20000,
+      "post_likes": 10000,
+      "conversations": 10000,
+      "conversation_members": 20000,
+      "messages": 20000,
+      "db_size_bytes": 41727679,
+      "seed_seconds": 13.1
+    },
+    "latency_by_scale": {
+      "feed_p50_ms": {"10": 2.18, "100": 2.30, "1000": 3.68, "10000": 23.41},
+      "leaderboard_p50_ms": {"10": 1.79, "100": 1.93, "1000": 2.57, "10000": 11.44},
+      "profile_p50_ms": {"10": 1.81, "100": 1.79, "1000": 1.76, "10000": 2.37},
+      "conversations_p50_ms": {"10": 2.35, "100": 2.37, "1000": 2.96, "10000": 4.09},
+      "quests_p50_ms": {"10": 1.95, "100": 1.94, "1000": 2.05, "10000": 2.02}
+    },
+    "complexity": {
+      "feed": "O(n) seq-scan + sort before index; O(log n)+limit after posts(created_at) index",
+      "leaderboard": "O(n) seq-scan + sort (COALESCE + LEFT JOIN prevents index-only ordering)",
+      "profile": "O(1)",
+      "conversations": "O(n) mild",
+      "quests": "O(1)"
+    }
+  },
+  "read_performance_p50_p95_p99_ms": {
+    "healthz": {"p50": 1.03, "p95": 3.15, "p99": 5.61},
+    "readyz": {"p50": 1.36, "p95": 2.29, "p99": 3.09},
+    "dashboard": {"p50": 10.97, "p95": 16.29, "p99": 18.57},
+    "profile_me": {"p50": 2.54, "p95": 8.85, "p99": 9.27},
+    "level": {"p50": 2.31, "p95": 5.19, "p99": 8.20},
+    "quests_list": {"p50": 2.69, "p95": 5.03, "p99": 5.66},
+    "recommendations": {"p50": 6.98, "p95": 10.12, "p99": 14.48},
+    "daily_plan": {"p50": 5.76, "p95": 8.10, "p99": 18.76},
+    "feed": {"p50": 19.59, "p95": 29.60, "p99": 31.90},
+    "feed_personalized": {"p50": 19.21, "p95": 22.30, "p99": 23.61},
+    "conversations": {"p50": 3.75, "p95": 5.65, "p99": 5.83}
+  },
+  "write_performance_p50_ms": {
+    "post_create": 2.85,
+    "quest_assign": 2.46,
+    "goal_update": 3.57,
+    "follow": 1.99,
+    "message_send": 5.33
+  },
+  "concurrent_xp_integrity": {
+    "same_quest_50_concurrent": {
+      "status_200": 50,
+      "new_awards": 1,
+      "already_awarded": 49,
+      "ledger_delta_xp": 50,
+      "p50_ms": 179.24,
+      "p95_ms": 190.71,
+      "max_ms": 192.40,
+      "integrity": "ledger_sum == level_sum; 0 negative; 0 completed_without_xp"
+    },
+    "distinct_quests_20_concurrent": {
+      "status_200": 20,
+      "new_awards": 20,
+      "expected": 20,
+      "ledger_delta_xp": 1000,
+      "integrity": "clean"
+    },
+    "multi_user_500_concurrent": {
+      "users": 500,
+      "status_200": 500,
+      "new_awards": 500,
+      "elapsed_ms": 1906,
+      "ledger_delta_xp": 25000,
+      "p50_ms": 1368,
+      "p95_ms": 1794,
+      "integrity": "ledger_sum == level_sum == 775000; 0 negative; 0 completed_without_xp"
+    }
+  },
+  "hot_row_contention": {
+    "scenario": "same user completing same quest 50x concurrently — all touch user_levels.total_xp row",
+    "result": "serialized on row lock; exactly 1 award + 49 idempotent replays; no deadlock, no timeout",
+    "serialization": "EXPECTED (correctness over throughput — locks retained)"
+  },
+  "connection_pool": {
+    "config": "pg Pool default max = 10 (no env override in code)",
+    "observation": "500 concurrent completions queue on the pool: p50 1.37s, elapsed 1.9s (~260 req/s throughput)",
+    "classification": "INFRASTRUCTURE-DEPENDENT (pool size not application-configurable today)"
+  },
+  "query_plan_index_audit": {
+    "feed": "Seq Scan posts + Hash Join + Sort (O(n log n)); FIXED with posts(created_at DESC) index: 20.2ms -> 0.34ms (60x)",
+    "leaderboard": "Seq Scan user_levels + Hash Join + Sort; total_xp index tested but only 1.6x (still sorts) — NOT added (write overhead on every XP award outweighs gain)",
+    "xp_by_user": "Bitmap Heap Scan (xp_transactions_user_id_idx) — indexed",
+    "quests_by_user": "Index Scan (user_quests_user_id_idx) — indexed",
+    "following_feed": "Index Only Scan (follows_follower_following_unique) + Bitmap (posts_user_id_idx) — indexed",
+    "index_added": "posts_created_at_idx (migration 0003_mighty_bastion)"
+  },
+  "nplus1": "feed = 1 query, conversations = 1 query, personalized feed = 1 query; no parent+N-children loops found",
+  "pagination": {
+    "max_limit": 100,
+    "limit_0": "200 empty",
+    "limit_999999999": "200 capped to 100",
+    "offset_deep_10000": "200 (~28ms, O(offset))",
+    "defect": "limit=-1 and limit=abc returned HTTP 500 (negative/NaN passed to SQL LIMIT/OFFSET)",
+    "fix": "parseLimit/parseOffset sanitize non-finite and negative to safe values; regression-tested"
+  },
+  "payload_limits": {
+    "body_limit": "express.json default 100KB",
+    "1MB_caption": "413",
+    "100k_hashtags": "413",
+    "deeply_nested_5k": "500 -> FIXED to 400 (recursive stripNullBytes RangeError -> iterative traversal)",
+    "repeated_role_field": "no special handling (last-wins JSON.parse semantics)"
+  },
+  "sse": {
+    "connections_100": "opened cleanly (+~110 fds); broadcast OK",
+    "cleanup": "fd count returns to baseline (~25) within seconds of abort; no leak",
+    "isolation": "membership check per connection; existing sse-auth tests pass"
+  },
+  "rate_limit": {
+    "quests_assign_150_concurrent": {"201": 50, "409": 70, "429": 30},
+    "auth_signin_40_concurrent": {"401": 8, "429": 32},
+    "note": "max=120/10min (mutation) and max=10/15min (auth) enforced under concurrency",
+    "classification": "INFRASTRUCTURE-DEPENDENT: express-rate-limit MemoryStore is per-process (not global across instances)"
+  },
+  "auth_performance": {
+    "bcryptjs_12_rounds_ms": 330,
+    "event_loop_lag_ms": {"1_hash": 103, "4_hashes": 404, "8_hashes": 808},
+    "finding": "C — bcryptjs (pure JS) hashes on the main thread; concurrent auth degrades unrelated requests",
+    "recommendation": "migrate to native bcrypt (libuv threadpool) or argon2; or offload to worker thread"
+  },
+  "ai_resilience": {
+    "groq_configured": false,
+    "classification": "UNTESTED (live Groq timeout/slow/failure) — GROQ_API_KEY not set; fallback code path verified: deterministic endpoints remained deterministic across all load tests"
+  },
+  "cache_hot_path": {
+    "finding": "no explicit cache layer; repeated requests hit PostgreSQL; determinism tests pass; no stale/cross-user data observed"
+  },
+  "memory_leak": {
+    "rss_stabilized_mb": "~220-240 (plateau, no monotonic growth across load/idle cycles)",
+    "sse_open_close_rss_delta": 0,
+    "fd_returned_to_baseline": true,
+    "verdict": "no leak detected"
+  },
+  "failure_under_load": {
+    "pool_error_handler": "present (db/index.ts attaches pool.on('error') to avoid crash on PG restart)",
+    "existing_tests": "failure-injection.test.ts + db-pool-resilience.test.ts pass",
+    "live_pg_restart_test": "not performed (embedded PG restart disrupts shared cluster)"
+  },
+  "browser_performance": {
+    "classification": "NOT EXECUTED / INFRASTRUCTURE-DEPENDENT — no Chromium in sandbox; web app requires same-origin proxy to API (deployment infra not replicated locally)"
+  },
+  "optimization_before_after": {
+    "feed_index": {"before_query_ms": 20.2, "after_query_ms": 0.34, "before_http_p50_ms": 23.41, "after_http_p50_ms": 2.9},
+    "principle": "only posts(created_at) index added (measured 60x win); total_xp index rejected (1.6x, high write overhead)"
+  },
+  "final_soak_30s": {
+    "requests": 14808,
+    "failures": 0,
+    "throughput_rps": 493.6,
+    "p50_ms": 9.88,
+    "p95_ms": 18.33,
+    "p99_ms": 24.95,
+    "max_ms": 101.04,
+    "negative_xp": 0,
+    "orphan_xp": 0
+  }
+}

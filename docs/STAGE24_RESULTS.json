@@ -1,0 +1,144 @@
+{
+  "stage": "Stage 24 — Data Integrity, Privacy, Lifecycle & Disaster-Recovery Audit",
+  "decision": "GREEN",
+  "baseline": {
+    "authoritative_commit": "ecc1726",
+    "branch": "arena/01a05271-life-xp",
+    "recovery_note": "Environment reset to 25cbdf2; recovered ecc1726 via git fetch + reset --hard",
+    "git_status": "clean",
+    "postgresql": "18.4 (embedded-postgres 18.4.0-beta.17)",
+    "node": "22.22.3",
+    "pnpm": "10.34.5",
+    "migrations": "2 (0000, 0001) applied to fresh DB",
+    "baseline_tests": "372/372 (41 files), 52.95s",
+    "typecheck": "PASS",
+    "build": "PASS",
+    "secret_scan": "clean"
+  },
+  "schema_inventory": {
+    "table_count": 23,
+    "all_pk_uuid": true,
+    "relationship_graph": "users -> refresh_tokens/onboarding_states/user_profiles/user_characters/user_goals/user_quests/xp_transactions/user_levels/user_attributes/attribute_history/ai_user_goals/ai_daily_tasks/ai_chat_messages/ai_daily_tips/posts/post_likes/follows/conversation_members/messages (all CASCADE); quest_templates + archetypes are reference data",
+    "orphan_risk": "conversations have no owner; 1-on-1 conversation with deleted other member becomes invisible to survivor (documented C-1)",
+    "dangling_references": "attribute_history.source_id + xp_transactions.source_id are text (not FK) by design",
+    "missing_check_constraints": ["xp_transactions.amount >= 0 (documented B)"],
+    "duplicate_protection": "members/likes/follows all have composite UNIQUE"
+  },
+  "account_deletion": {
+    "mechanism": "DELETE /api/users/me (hard delete + ON DELETE CASCADE)",
+    "user_disappears": true,
+    "orphaned_child_rows": 0,
+    "private_data_removed": true,
+    "sent_messages_removed": true,
+    "tokens_cannot_revive": "fixed (D-2)",
+    "appears_in_feeds_after_delete": false
+  },
+  "delete_model": "hard-delete only (no soft delete / archive / retention)",
+  "privacy": {
+    "pii_fields_never_exposed": ["date_of_birth", "activity_level", "password_hash", "token_hash", "refreshToken"],
+    "email_not_leaked_cross_user": true,
+    "endpoints_checked": ["leaderboard", "posts", "posts/personalized", "users/:id", "conversations", "users/me", "users/me/profile-extra"]
+  },
+  "export_capability": {
+    "exists": false,
+    "classification": "product/privacy lifecycle gap (documented C-2)"
+  },
+  "xp_ledger": {
+    "invariant": "SUM(xp_transactions.amount) == user_levels.total_xp",
+    "verified": true,
+    "no_negative_entries_app_side": true,
+    "no_ledger_without_source": true,
+    "idempotency_key_unique": true,
+    "abandon_does_not_alter_history": true,
+    "concurrent_completion_awards_once": true,
+    "delete_race_leaves_no_orphan": true
+  },
+  "derived_data": {
+    "recomputed_per_request": ["streak", "momentum", "weaknesses", "recovery", "difficulty", "recommendations", "daily-plan", "weekly-review", "forecast", "behavior", "level"],
+    "level_formula": "floor(sqrt(total_xp/100))+1",
+    "level_verified_equal": true,
+    "persisted_caches": ["ai_daily_tasks (advisory-locked per user+date)", "ai_daily_tips (per day)"],
+    "in_memory_caches": ["SSE registry only (lifecycle-managed)"],
+    "no_conflicting_authority": true
+  },
+  "migrations": {
+    "forward": true,
+    "clean_database": true,
+    "idempotent": true,
+    "ordering": "1, 2 in journal",
+    "destructive_ops": "none",
+    "seed": "archetypes via scripts/seed-archetypes; quest_templates no committed script (documented C-4)"
+  },
+  "backup_restore": {
+    "method": "PostgreSQL COPY protocol (pg-copy-streams); pg_dump/pg_restore not bundled in runtime",
+    "tables_backed_up": 23,
+    "tables_restored_matching": 23,
+    "xp_ledger_before_after": "50 == 50",
+    "ownership_preserved": true,
+    "relationships_preserved": true,
+    "result": "RESTORE INTEGRITY VERIFIED"
+  },
+  "recovery_limits": {
+    "application_guarantee": "self-describing migrations; logical restore demonstrated; ledger single-authority",
+    "infrastructure_guarantee": "backup frequency/retention/RPO/RTO/PITR/encryption NOT provided by repo (not fabricated)"
+  },
+  "transactional_consistency": {
+    "quest_completion_atomic": true,
+    "no_partial_authoritative_state": true
+  },
+  "concurrency": {
+    "delete_vs_complete": "no orphan XP / no resurrection",
+    "triple_complete": "exactly one award"
+  },
+  "cache_consistency": {
+    "no_cache_can_override_authoritative_state": true
+  },
+  "log_privacy": {
+    "no_passwords": true,
+    "no_raw_tokens": true,
+    "no_pii": true,
+    "no_message_content": true,
+    "request_ids_useful_without_leak": true
+  },
+  "error_semantics": {
+    "generic_internal_errors": true,
+    "deleted_identity_rejected_401": true
+  },
+  "adversarial_corruption": {
+    "duplicate_membership": "rejected (UNIQUE)",
+    "child_with_missing_user": "rejected (FK)",
+    "negative_xp_transaction": "accepted at DB level (no CHECK) — documented B"
+  },
+  "email_validation": {
+    "contract": "string, ≤254 chars, local@domain.tld, normalized (trim+lowercase), deterministic 400",
+    "object_number_array_null_empty_malformed_500char": "400",
+    "valid_email": "201 + normalized",
+    "signin_normalized": true
+  },
+  "security_regression": "Stage 23 guarantees intact (IDOR/PII/XP/session/SSE/SQLi all re-verified)",
+  "findings": [
+    { "id": "D-1", "class": "D", "summary": "posts.likes_count drifted on account deletion", "status": "FIXED" },
+    { "id": "D-2", "class": "D", "summary": "deleted account JWT accepted -> FK-violation 500s", "status": "FIXED" },
+    { "id": "C-2", "class": "C", "summary": "signup accepted non-string/malformed/unbounded emails", "status": "FIXED" },
+    { "id": "B", "class": "B", "summary": "xp_transactions.amount lacks non-negative CHECK", "status": "DOCUMENTED" },
+    { "id": "C-1", "class": "C", "summary": "conversation orphan / partial thread after member deletion", "status": "DOCUMENTED" },
+    { "id": "C-2", "class": "C", "summary": "no user-data export capability", "status": "DOCUMENTED" },
+    { "id": "C-3", "class": "C", "summary": "no notifications subsystem", "status": "DOCUMENTED" },
+    { "id": "C-4", "class": "C", "summary": "quest templates have no committed seed script", "status": "DOCUMENTED" },
+    { "id": "C-5", "class": "C", "summary": "no automated backup/PITR in repo", "status": "DOCUMENTED" }
+  ],
+  "regression": {
+    "stage24_suite": "21/21",
+    "full_suite": "393/393 (42 files)",
+    "typecheck": "PASS",
+    "build": "PASS",
+    "secret_scan": "clean"
+  },
+  "residual_risk": [
+    "xp_transactions.amount has no non-negative CHECK (app correct; out-of-band writes not blocked)",
+    "no export / notifications / retention-archive (documented as absent)",
+    "backup/PITR/RPO/RTO/encryption are infra responsibilities (logical restore demonstrated only)",
+    "npm audit unreachable from sandbox (network); lockfile verified by inspection",
+    "object-storage upload path inspected, not executed end-to-end"
+  ]
+}

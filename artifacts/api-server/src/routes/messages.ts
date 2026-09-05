@@ -1,23 +1,24 @@
 import { Router } from "express";
 import { sql } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { requireAuth } from "../lib/auth";
+import { requireAuth, verifyToken } from "../lib/auth";
+import { parseLimit } from "../lib/pagination";
+import { broadcast, registerClient, unregisterClient } from "../lib/sse-registry";
 
 const router = Router();
-router.use(requireAuth);
-
-// In-memory SSE clients map: conversationId -> Set of {userId, res}
-const sseClients = new Map<string, Set<{ userId: string; res: any }>>();
-
-function broadcastToConversation(conversationId: string, event: object, senderUserId: string) {
-  const clients = sseClients.get(conversationId);
-  if (!clients) return;
-  const data = `data: ${JSON.stringify(event)}\n\n`;
-  for (const client of clients) {
-    // Send to all clients in the conversation (including sender for confirmation)
-    try { client.res.write(data); } catch {}
+// requireAuth for all routes except the SSE events route, which authenticates
+// via ?token= (EventSource cannot set the Authorization header) and enforces
+// conversation membership in its own handler.
+router.use((req, res, next) => {
+  if (req.method === "GET" && req.path.endsWith("/events")) {
+    return next();
   }
-}
+  requireAuth(req, res, next);
+});
+
+// UUID v4-ish format check used to reject malformed ids cleanly (400) rather
+// than letting PostgreSQL raise a cast error.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // GET /api/messages/conversations
 router.get("/conversations", async (req, res) => {
@@ -52,6 +53,16 @@ router.post("/conversations", async (req, res) => {
   if (!otherUserId || otherUserId === userId) {
     res.status(400).json({ message: "Invalid user" }); return;
   }
+  if (typeof otherUserId !== "string" || !UUID_RE.test(otherUserId)) {
+    res.status(400).json({ message: "Invalid user" }); return;
+  }
+
+  // Ensure the other user actually exists before inserting members, otherwise
+  // the FK constraint aborts the insert and surfaces as an unhandled 500.
+  const target = await db.execute(sql`SELECT 1 FROM users WHERE id = ${otherUserId} LIMIT 1`);
+  if (((target.rows ?? target) as any[]).length === 0) {
+    res.status(404).json({ message: "User not found" }); return;
+  }
 
   // Check if conversation already exists
   const existing = await db.execute(sql`
@@ -71,7 +82,7 @@ router.post("/conversations", async (req, res) => {
       INSERT INTO conversations DEFAULT VALUES RETURNING id
     )
     INSERT INTO conversation_members (conversation_id, user_id)
-    SELECT id, unnest(ARRAY[${userId}, ${otherUserId}]) FROM new_conv
+    SELECT id, unnest(ARRAY[${userId}::uuid, ${otherUserId}::uuid]) FROM new_conv
     RETURNING conversation_id as id
   `);
   const rows = (result.rows ?? result) as any[];
@@ -82,14 +93,15 @@ router.post("/conversations", async (req, res) => {
 router.get("/conversations/:id/messages", async (req, res) => {
   const userId = req.user!.sub;
   const convId = req.params.id;
+  if (!UUID_RE.test(convId)) { res.status(400).json({ message: "Invalid conversation id" }); return; }
 
   // Verify membership
-  const [member] = await db.execute(sql`
+  const member = (await db.execute(sql`
     SELECT 1 FROM conversation_members WHERE conversation_id = ${convId} AND user_id = ${userId}
-  `);
+  `)).rows[0];
   if (!member) { res.status(403).json({ message: "Not a member" }); return; }
 
-  const limit = Math.min(Number(req.query.limit ?? 50), 100);
+  const limit = parseLimit(req.query.limit, 50, 100);
   const before = req.query.before as string | undefined;
 
   const rows = await db.execute(sql`
@@ -111,6 +123,7 @@ router.get("/conversations/:id/messages", async (req, res) => {
 router.post("/conversations/:id/messages", async (req, res) => {
   const userId = req.user!.sub;
   const convId = req.params.id;
+  if (!UUID_RE.test(convId)) { res.status(400).json({ message: "Invalid conversation id" }); return; }
   const { content } = req.body ?? {};
   if (!content?.trim()) { res.status(400).json({ message: "Content required" }); return; }
 
@@ -132,11 +145,11 @@ router.post("/conversations/:id/messages", async (req, res) => {
   const msg = ((result.rows ?? result) as any[])[0];
 
   // Get sender info
-  const [senderInfo] = await db.execute(sql`
+  const senderInfo = (await db.execute(sql`
     SELECT u.username, u.display_name, up.avatar_url
     FROM users u LEFT JOIN user_profiles up ON up.user_id = u.id
     WHERE u.id = ${userId}
-  `);
+  `)).rows[0];
 
   const fullMsg = {
     ...msg,
@@ -146,7 +159,7 @@ router.post("/conversations/:id/messages", async (req, res) => {
   };
 
   // Broadcast via SSE to all members
-  broadcastToConversation(convId, { type: "message", message: fullMsg }, userId);
+  broadcast(convId, { type: "message", message: fullMsg }, userId);
 
   res.status(201).json(fullMsg);
 });
@@ -157,8 +170,7 @@ router.get("/conversations/:id/events", async (req, res) => {
   const tokenFromQuery = req.query.token as string | undefined;
   if (tokenFromQuery && !req.user) {
     try {
-      const { verifyToken } = require("../lib/auth");
-      (req as any).user = verifyToken(tokenFromQuery);
+      req.user = verifyToken(tokenFromQuery);
     } catch {
       res.status(401).json({ message: "Unauthorized" }); return;
     }
@@ -166,11 +178,12 @@ router.get("/conversations/:id/events", async (req, res) => {
   if (!req.user) { res.status(401).json({ message: "Unauthorized" }); return; }
   const userId = req.user!.sub;
   const convId = req.params.id;
+  if (!UUID_RE.test(convId)) { res.status(400).json({ message: "Invalid conversation id" }); return; }
 
   // Verify membership
-  const [member] = await db.execute(sql`
+  const member = (await db.execute(sql`
     SELECT 1 FROM conversation_members WHERE conversation_id = ${convId} AND user_id = ${userId}
-  `);
+  `)).rows[0];
   if (!member) { res.status(403).json({ message: "Not a member" }); return; }
 
   res.setHeader("Content-Type", "text/event-stream");
@@ -179,9 +192,7 @@ router.get("/conversations/:id/events", async (req, res) => {
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders();
 
-  const client = { userId, res };
-  if (!sseClients.has(convId)) sseClients.set(convId, new Set());
-  sseClients.get(convId)!.add(client);
+  registerClient(convId, userId, res);
 
   // Heartbeat every 25s
   const heartbeat = setInterval(() => {
@@ -190,8 +201,7 @@ router.get("/conversations/:id/events", async (req, res) => {
 
   req.on("close", () => {
     clearInterval(heartbeat);
-    sseClients.get(convId)?.delete(client);
-    if (sseClients.get(convId)?.size === 0) sseClients.delete(convId);
+    unregisterClient(convId, userId, res);
   });
 });
 

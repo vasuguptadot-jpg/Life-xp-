@@ -6,7 +6,9 @@ import {
   uuid,
   unique,
   index,
+  check,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { usersTable } from "./users";
 
 export const ATTRIBUTES = [
@@ -36,19 +38,36 @@ export const xpTransactionsTable = pgTable(
     description: text("description"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (t) => [index("xp_transactions_user_id_idx").on(t.userId)],
+  (t) => [
+    index("xp_transactions_user_id_idx").on(t.userId),
+    // STAGE 25 — authoritative XP invariant: a transaction amount must never
+    // be negative. The application sanitizes (only awards xp > 0), but the
+    // database is the final authority — this CHECK makes a negative insert
+    // impossible for the application role. Zero is permitted (a zero-value
+    // transaction cannot corrupt the SUM).
+    check("xp_transactions_amount_nonnegative", sql`${t.amount} >= 0`),
+  ],
 );
 
-export const userLevelsTable = pgTable("user_levels", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id")
-    .references(() => usersTable.id, { onDelete: "cascade" })
-    .unique()
-    .notNull(),
-  currentLevel: integer("current_level").default(1).notNull(),
-  totalXp: integer("total_xp").default(0).notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+export const userLevelsTable = pgTable(
+  "user_levels",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .references(() => usersTable.id, { onDelete: "cascade" })
+      .unique()
+      .notNull(),
+    currentLevel: integer("current_level").default(1).notNull(),
+    totalXp: integer("total_xp").default(0).notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    // STAGE 25 — total XP is a monotonic aggregate of the XP ledger; a
+    // negative total would corrupt level derivation (sqrt(total/100)+1).
+    check("user_levels_total_xp_nonnegative", sql`${t.totalXp} >= 0`),
+    check("user_levels_current_level_positive", sql`${t.currentLevel} >= 1`),
+  ],
+);
 
 export const userAttributesTable = pgTable(
   "user_attributes",
@@ -61,7 +80,12 @@ export const userAttributesTable = pgTable(
     currentValue: integer("current_value").default(0).notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
-  (t) => [unique("user_attributes_user_attribute_unique").on(t.userId, t.attribute)],
+  (t) => [
+    unique("user_attributes_user_attribute_unique").on(t.userId, t.attribute),
+    // STAGE 25 — attribute XP is monotonic (the application only awards
+    // positive deltas); a negative current value would break monotonicity.
+    check("user_attributes_current_value_nonnegative", sql`${t.currentValue} >= 0`),
+  ],
 );
 
 export const attributeHistoryTable = pgTable(
@@ -82,6 +106,9 @@ export const attributeHistoryTable = pgTable(
     // Ensures a given (sourceId, attribute) pair is only awarded once.
     // NULLs are exempt from this constraint (NULL != NULL in SQL).
     unique("attribute_history_source_attr_unique").on(t.sourceId, t.attribute),
+    // STAGE 25 — history records only positive awards; a negative delta would
+    // silently decrement the corresponding attribute if replayed.
+    check("attribute_history_delta_nonnegative", sql`${t.delta} >= 0`),
   ],
 );
 

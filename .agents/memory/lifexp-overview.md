@@ -6,20 +6,13 @@ description: Full-stack summary of the LifeXP app — auth, DB schema, API route
 ## Stack
 - **API**: Express 5 + Drizzle ORM + PostgreSQL + Groq AI (`artifacts/api-server`)
 - **Web**: React 19 + Vite + Tailwind CSS v4 (`artifacts/web`)
-- **Mobile**: Expo 54 — has a recurring ENOENT watcher crash (streamsearch_tmp) on startup; restart usually works (`artifacts/mobile`)
-- **Shared DB schema**: `lib/db/src/schema/` — Drizzle tables. New tables added via raw SQL are NOT in schema files; query them with `db.execute(sql\`...\`)`.
+- **Shared DB schema**: `lib/db/src/schema/` — Drizzle tables (the source of truth). Some routes still query via `db.execute(sql\`...\`)` raw SQL (social, messages) even though the backing tables now exist in the schema.
 - **API client**: orval-generated hooks in `lib/api-client-react`
 
-## DB Tables (as of Aug 2026)
-Drizzle schema: users, user_levels, user_profiles (bio, age, weight_kg, height_cm, avatar_url added via raw SQL), onboarding_progress, archetypes, quest_templates, user_quests, ai_chats, user_goals, attribute_history, ...
+## DB Tables (Stage 4 reconciled)
+Drizzle schema: users, refresh_tokens, onboarding_states, user_profiles (incl. avatar_url, bio, age), archetypes, user_characters, user_goals (incl. text), user_levels, user_attributes, attribute_history, xp_transactions, quest_templates, user_quests, ai_user_goals, ai_daily_tasks, ai_chat_messages, ai_daily_tips, posts, post_likes, follows, conversations, conversation_members, messages.
 
-Raw SQL tables (not in Drizzle schema — use `db.execute(sql\`...\`)`):
-- `follows (follower_id, following_id)`
-- `posts (id, user_id, caption, image_url, video_url, hashtags text[], likes_count, post_type, created_at)`
-- `post_likes (user_id, post_id)`
-- `conversations (id, created_at)`
-- `conversation_members (conversation_id, user_id, joined_at)`
-- `messages (id, conversation_id, sender_id, content, created_at)`
+The social/messaging tables are queried via raw `db.execute(sql\`...\`)` in `routes/social.ts` and `routes/messages.ts`, but are now defined in `schema/social.ts` and `schema/messaging.ts` and created by migration `0001_*`.
 
 ## API Routes
 - `/api/auth/*` — login, register, refresh, logout
@@ -51,5 +44,5 @@ EventSource can't set headers; pass auth token as `?token=` query param. Backend
 path-to-regexp v8 does NOT support `*` or `+` suffix on params (`/:param*`, `/:param+`). Use `router.use("/prefix", ...)` for wildcard routes.
 
 ## Key decisions
-- Leaderboard and any query joining `user_profiles` must use raw SQL (`db.execute`) because avatar_url etc. were added via raw SQL, not in Drizzle schema.
+- Leaderboard and social/messaging queries use raw SQL (`db.execute`). The backing tables (`posts`, `post_likes`, `follows`, `conversations`, `conversation_members`, `messages`) and `user_profiles.avatar_url/bio/age` are now in the Drizzle schema (Stage 4), so a fresh migration reproduces them.
 - AI feed: score by recency × 0.5 + likes × 0.2 + goal-keyword overlap × 0.4 (no Groq needed for ranking, deterministic).

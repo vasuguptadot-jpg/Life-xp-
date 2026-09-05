@@ -1,0 +1,85 @@
+{
+  "stage": "STAGE26_1",
+  "title": "Authentication CPU Isolation & Password-Hashing Hardening",
+  "classification": "GREEN",
+  "decision": "native bcrypt (Option A) — bcryptjs → bcrypt@6.0.0, cost 12 and algorithm unchanged",
+  "decision_phrase": "STAGE 26.1 decision: GREEN — password hashing moved from bcryptjs (pure JS, main-event-loop, up to 1617 ms lag at 16 concurrent sign-ins) to native bcrypt (libuv threadpool), with cost 12 and the bcrypt algorithm unchanged so no password security was weakened and no account was invalidated (legacy $2a$ hashes still verify; new hashes emit $2b$12$). Event-loop lag is now flat at 4–14 ms independent of concurrency (vs 105–1617 ms before), and cross-user latency under concurrent sign-in load is ~1 ms — authentication no longer starves unrelated users. A pre-existing account-enumeration timing oracle (nonexistent 401 in ~2 ms vs ~250 ms) was closed with a dummy-hash compare. Rate limits, uniform failure behavior, JWT/refresh rotation, and logout semantics are unchanged. Full regression 447/447; typecheck/build/secret-scan clean.",
+  "baseline": {
+    "commit": "87410451cb36df10e34a846e6379b482c34c8ce4",
+    "postgres": "18.4 (127.0.0.1:5434)",
+    "node": "v22.22.3",
+    "pnpm": "10.34.5",
+    "before_library": "bcryptjs@2.4.3 (pure JS)",
+    "after_library": "bcrypt@6.0.0 (native, prebuilt linux-x64)"
+  },
+  "decision_comparison": {
+    "D_keep_bcryptjs": { "event_loop_lag_c8_ms": 809, "memory_overhead_mb": 0, "selected": false },
+    "A_native_bcrypt": { "event_loop_lag_c8_ms": 11, "memory_overhead_mb": 0, "migration": "none", "selected": true },
+    "C_worker_threads": { "event_loop_lag_c8_ms": 10, "memory_overhead_mb": 40, "migration": "none", "selected": false },
+    "B_argon2id": { "migration": "required", "selected": false, "reason": "stronger KDF overkill, no security need, breaks gradual migration" }
+  },
+  "part2_contention_curve": {
+    "before_bcryptjs_event_loop_lag_ms": { "C1": 105, "C2": 211, "C4": 409, "C8": 809, "C16": 1617 },
+    "after_native_bcrypt_event_loop_lag_ms": { "C1": 4, "C2": 10, "C4": 12, "C8": 11, "C16": 14 },
+    "improvement_x": { "C8": 73.5, "C16": 115.5 }
+  },
+  "part4_migration": {
+    "rehash_required": false,
+    "native_verifies_bcryptjs_2a": true,
+    "bcryptjs_verifies_native_2b": true,
+    "new_hash_prefix": "$2b$12$",
+    "legacy_hash_prefix": "$2a$12$"
+  },
+  "part6_timing_enumeration": {
+    "finding": "pre-existing account-enumeration timing oracle (nonexistent 401 ~244 ms faster)",
+    "fix": "dummy cost-12 hash compare on not-found/inactive path",
+    "before_delta_ms": 244,
+    "after_delta_ms": 5,
+    "resolved": true
+  },
+  "part8_rate_limit": {
+    "limiter": "max 10/15min, IP-keyed, runs before expensive hash",
+    "bypass": "X-Forwarded-For spoofing bypasses IP key when trust proxy=1 and server directly reachable",
+    "classification": "PRE-EXISTING, INFRASTRUCTURE-DEPENDENT, not introduced by bcrypt swap"
+  },
+  "part9_cross_user_latency_after": {
+    "C16": { "attacker_signin_p50_ms": 2508.6, "healthz_p50_ms": 0.7, "healthz_p99_ms": 8.3, "healthz_max_ms": 53.5 },
+    "C32": { "attacker_signin_p50_ms": 4061.9, "healthz_p50_ms": 0.6, "healthz_p99_ms": 6.2, "healthz_max_ms": 76.0 }
+  },
+  "part10_cpu_memory": {
+    "rss_idle_mb": 138,
+    "rss_after_16_signins_mb": 179,
+    "threads": 11,
+    "native_bcrypt_memory_overhead_mb": 0
+  },
+  "part11_failure_injection": {
+    "malformed_hash": "compare false, no throw",
+    "cost_99_planted_hash": "fails fast (native validates cost) — improved DoS resistance vs bcryptjs hang"
+  },
+  "part12_security_regression": "44/44 passed (stage23-security-audit, security-regression, refresh-rotation, rate-limiting, sse-auth)",
+  "part13_mixed_workload_soak": {
+    "dataset": "lifexp_load 10,000 users / 20,000 posts",
+    "duration_s": 20,
+    "concurrency": 8,
+    "requests": 5929,
+    "failures": 0,
+    "throughput_rps": 296.4,
+    "p50_ms": 23.24,
+    "p95_ms": 46.62,
+    "p99_ms": 80.08,
+    "negative_xp": 0
+  },
+  "part14_full_regression": {
+    "vitest": "447/447 (44 files)",
+    "typecheck": "PASS",
+    "build": "PASS",
+    "secret_scan": "clean"
+  },
+  "files_changed": [
+    "artifacts/api-server/src/routes/auth.ts",
+    "artifacts/api-server/package.json",
+    "artifacts/api-server/src/tests/regression.test.ts",
+    "artifacts/api-server/src/tests/stage26_1-auth.test.ts (new)",
+    "pnpm-lock.yaml"
+  ]
+}

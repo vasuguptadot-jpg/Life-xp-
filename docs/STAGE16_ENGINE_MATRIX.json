@@ -1,0 +1,169 @@
+{
+  "stage": 16,
+  "title": "Deterministic Life Engine — Engine Matrix",
+  "principle": "Life Engine AUTHORITATIVE, AI NON-AUTHORITATIVE (conversation/wording only)",
+  "ai_dependency": {
+    "before": 3,
+    "after": 1,
+    "before_features": ["GET /api/ai/daily-tasks", "GET /api/ai/life-tip", "POST /api/ai/chat"],
+    "after_features": ["POST /api/ai/chat (open-ended only)"],
+    "deterministic_replacements": ["daily-tasks", "life-tip"],
+    "remaining_ai": "open-ended coaching conversation"
+  },
+  "engines": [
+    {
+      "name": "Streak Engine",
+      "file": "lib/life-engine/streak-engine.ts",
+      "endpoint": "GET /api/life-engine/streak",
+      "deterministic": true,
+      "ai_dependency": false,
+      "data_source": ["xp_transactions.createdAt"],
+      "output": ["currentStreak", "longestStreak", "streakRisk", "missedDays", "comebackStatus"]
+    },
+    {
+      "name": "Momentum Engine",
+      "file": "lib/life-engine/momentum-engine.ts",
+      "endpoint": "GET /api/life-engine/momentum",
+      "deterministic": true,
+      "ai_dependency": false,
+      "data_source": ["xp_transactions", "ai_daily_tasks"],
+      "output": ["score(0-100)", "direction", "factors[]"]
+    },
+    {
+      "name": "Weakness Engine",
+      "file": "lib/life-engine/weakness-engine.ts",
+      "endpoint": "GET /api/life-engine/weaknesses",
+      "deterministic": true,
+      "ai_dependency": false,
+      "data_source": ["user_attributes", "ai_daily_tasks", "user_quests", "xp_transactions"],
+      "output": ["area", "score", "confidence", "evidence[]", "recommendedAction"]
+    },
+    {
+      "name": "Recovery Engine",
+      "file": "lib/life-engine/recovery-engine.ts",
+      "endpoint": "GET /api/life-engine/recovery",
+      "deterministic": true,
+      "ai_dependency": false,
+      "data_source": ["xp_transactions", "user_quests", "ai_daily_tasks"],
+      "output": ["active", "reason", "level", "suggestedDailyTasks", "suggestedDifficulty", "priority"]
+    },
+    {
+      "name": "Difficulty Engine",
+      "file": "lib/life-engine/difficulty-engine.ts",
+      "endpoint": "GET /api/life-engine/difficulty",
+      "deterministic": true,
+      "ai_dependency": false,
+      "data_source": ["user_quests", "user_levels"],
+      "output": ["recommended", "xpReward", "suggestedQuestType", "previousLevel", "adjustment", "reason"]
+    },
+    {
+      "name": "Recommendation Engine",
+      "file": "lib/life-engine/recommendation-engine.ts",
+      "endpoint": "GET /api/life-engine/recommendations",
+      "deterministic": true,
+      "ai_dependency": false,
+      "data_source": ["task/quest templates", "user state"],
+      "output": ["score(0-100)", "reasonCodes[]"]
+    },
+    {
+      "name": "Goal Decomposition Engine",
+      "file": "lib/life-engine/goal-engine.ts",
+      "endpoint": "GET /api/life-engine/goals",
+      "deterministic": true,
+      "ai_dependency": false,
+      "data_source": ["user_goals.goalKey", "ai_user_goals.goals"],
+      "output": ["key", "goal", "milestones[{title, weeklyObjectives[]}]"]
+    },
+    {
+      "name": "Daily Plan Engine",
+      "file": "lib/life-engine/daily-plan-engine.ts (+ orchestrator.ts)",
+      "endpoint": "GET /api/life-engine/daily-plan, GET /api/progression/daily-plan",
+      "deterministic": true,
+      "ai_dependency": false,
+      "data_source": ["all of the above + ai_daily_tasks"],
+      "output": ["date", "priority", "tasks[]", "recommendedDifficulty", "estimatedEffort", "focusArea", "recoveryMode", "reason"]
+    },
+    {
+      "name": "Weekly Review Engine",
+      "file": "lib/life-engine/weekly-review-engine.ts",
+      "endpoint": "GET /api/life-engine/weekly-review",
+      "deterministic": true,
+      "ai_dependency": false,
+      "data_source": ["xp_transactions", "user_quests", "ai_daily_tasks", "user_attributes"],
+      "output": ["xpEarned", "questsCompleted", "completionRate", "streakPerformance", "strongestArea", "weakestArea", "momentumTrend", "recommendedFocus", "milestoneProgress"]
+    },
+    {
+      "name": "Milestone Forecast Engine",
+      "file": "lib/life-engine/milestone-forecast-engine.ts",
+      "endpoint": "GET /api/life-engine/forecast",
+      "deterministic": true,
+      "ai_dependency": false,
+      "data_source": ["xp_transactions", "user_levels"],
+      "output": ["milestone", "xpNeeded", "daysEstimated", "estimatedDate", "isEstimate", "basis"],
+      "labels_forecasts_as_estimates": true
+    },
+    {
+      "name": "Behavior Pattern Engine",
+      "file": "lib/life-engine/behavior-engine.ts",
+      "endpoint": "GET /api/life-engine/behavior",
+      "deterministic": true,
+      "ai_dependency": false,
+      "data_source": ["xp_transactions.createdAt", "user_quests", "ai_daily_tasks"],
+      "output": ["pattern", "evidence", "confidence"]
+    },
+    {
+      "name": "Quest Rotation Engine",
+      "file": "lib/life-engine/quest-engine.ts",
+      "endpoint": "GET /api/life-engine/quests/rotation",
+      "deterministic": true,
+      "ai_dependency": false,
+      "data_source": ["quest_templates", "user_quests"],
+      "output": ["Recommendation[] (rotated, category-balanced)"]
+    },
+    {
+      "name": "Daily Task Engine",
+      "file": "lib/life-engine/daily-task-engine.ts",
+      "endpoint": "GET /api/ai/daily-tasks (legacy path retained)",
+      "deterministic": true,
+      "ai_dependency": false,
+      "data_source": ["user_goals", "user_levels", "user_attributes", "attribute_history", "xp_transactions", "archetypes", "ai_daily_tasks"]
+    },
+    {
+      "name": "Life Tip Engine",
+      "file": "lib/life-engine/life-tip-engine.ts",
+      "endpoint": "GET /api/ai/life-tip (legacy path retained)",
+      "deterministic": true,
+      "ai_dependency": false,
+      "data_source": ["xp_transactions", "ai_daily_tasks", "user_attributes"]
+    },
+    {
+      "name": "Chat Intent Layer",
+      "file": "lib/life-engine/intents.ts",
+      "endpoint": "POST /api/ai/chat (pre-processing)",
+      "deterministic": true,
+      "ai_dependency": "open-ended only",
+      "intents": ["level", "xp", "quests", "streak", "completed_today", "progress", "daily_plan", "weekly_review", "weaknesses", "recommendations", "goals", "momentum"]
+    }
+  ],
+  "schema_changes": "NO",
+  "new_endpoints": [
+    "GET /api/life-engine/streak",
+    "GET /api/life-engine/momentum",
+    "GET /api/life-engine/weaknesses",
+    "GET /api/life-engine/recovery",
+    "GET /api/life-engine/difficulty",
+    "GET /api/life-engine/recommendations",
+    "GET /api/life-engine/quests/rotation",
+    "GET /api/life-engine/goals",
+    "GET /api/life-engine/daily-plan",
+    "GET /api/life-engine/weekly-review",
+    "GET /api/life-engine/forecast",
+    "GET /api/life-engine/behavior",
+    "GET /api/progression/daily-plan"
+  ],
+  "performance": {
+    "analytics_state_queries": "8 parallel bounded queries (no N+1)",
+    "endpoint_latency_ms_range": [3, 30]
+  },
+  "offline_capability": "All engines + 12 life-engine endpoints + chat data-intents work with no GROQ_API_KEY / internet."
+}

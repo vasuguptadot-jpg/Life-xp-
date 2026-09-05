@@ -1,22 +1,23 @@
 import { Router } from "express";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { usersTable, userLevelsTable, userProfilesTable } from "@workspace/db/schema";
+import { usersTable, userLevelsTable, userProfilesTable, postsTable, postLikesTable } from "@workspace/db/schema";
 import { requireAuth } from "../lib/auth";
+import { logger } from "../lib/logger";
 import { ObjectStorageService } from "../lib/objectStorage";
+import { isValidUuid } from "../lib/uuid";
+import { parseLimit, parseOffset } from "../lib/pagination";
 import multer from "multer";
-import Groq from "groq-sdk";
 
 const router = Router();
 router.use(requireAuth);
 
 const storage = new ObjectStorageService();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 150 * 1024 * 1024 } });
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 // ── Leaderboard ──────────────────────────────────────────────────────────────
 router.get("/leaderboard", async (req, res) => {
-  const limit = Math.min(Number(req.query.limit ?? 50), 100);
+  const limit = parseLimit(req.query.limit, 50, 100);
   const rows = await db.execute(sql`
     SELECT u.id, u.username, u.display_name as "displayName",
            COALESCE(ul.total_xp, 0) as "totalXp",
@@ -35,6 +36,7 @@ router.get("/leaderboard", async (req, res) => {
 // ── Public user profile ──────────────────────────────────────────────────────
 router.get("/users/:id", async (req, res) => {
   const { id } = req.params;
+  if (!isValidUuid(id)) { res.status(400).json({ message: "Invalid user id" }); return; }
   const viewerId = req.user!.sub;
 
   const [user] = await db.select({
@@ -44,15 +46,30 @@ router.get("/users/:id", async (req, res) => {
 
   if (!user) { res.status(404).json({ message: "User not found" }); return; }
 
+  // Select only the PUBLIC profile fields. The full user_profiles row also
+  // contains sensitive PII (date_of_birth, activity_level) that the public
+  // profile UI never renders — returning the whole row would leak a user's
+  // precise date of birth and activity level to any authenticated account.
+  // (STAGE 23 finding C-1.)
   const [[profile], [levelRow]] = await Promise.all([
-    db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, id)).limit(1),
+    db
+      .select({
+        avatarUrl: userProfilesTable.avatarUrl,
+        bio: userProfilesTable.bio,
+        age: userProfilesTable.age,
+        weightKg: userProfilesTable.weightKg,
+        heightCm: userProfilesTable.heightCm,
+      })
+      .from(userProfilesTable)
+      .where(eq(userProfilesTable.userId, id))
+      .limit(1),
     db.select().from(userLevelsTable).where(eq(userLevelsTable.userId, id)).limit(1),
   ]);
 
   const [[followerCount], [followingCount], [followRow]] = await Promise.all([
-    db.execute(sql`SELECT COUNT(*) FROM follows WHERE following_id = ${id}`),
-    db.execute(sql`SELECT COUNT(*) FROM follows WHERE follower_id = ${id}`),
-    db.execute(sql`SELECT 1 FROM follows WHERE follower_id = ${viewerId} AND following_id = ${id} LIMIT 1`),
+    db.execute(sql`SELECT COUNT(*) FROM follows WHERE following_id = ${id}`).then((r) => r.rows),
+    db.execute(sql`SELECT COUNT(*) FROM follows WHERE follower_id = ${id}`).then((r) => r.rows),
+    db.execute(sql`SELECT 1 FROM follows WHERE follower_id = ${viewerId} AND following_id = ${id} LIMIT 1`).then((r) => r.rows),
   ]);
 
   res.json({
@@ -68,7 +85,10 @@ router.get("/users/:id", async (req, res) => {
 router.post("/users/:id/follow", async (req, res) => {
   const followerId = req.user!.sub;
   const followingId = req.params.id;
+  if (!isValidUuid(followingId)) { res.status(400).json({ message: "Invalid user id" }); return; }
   if (followerId === followingId) { res.status(400).json({ message: "Cannot follow yourself" }); return; }
+  const [target] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.id, followingId)).limit(1);
+  if (!target) { res.status(404).json({ message: "User not found" }); return; }
   await db.execute(sql`INSERT INTO follows (follower_id, following_id) VALUES (${followerId}, ${followingId}) ON CONFLICT DO NOTHING`);
   res.json({ following: true });
 });
@@ -76,6 +96,7 @@ router.post("/users/:id/follow", async (req, res) => {
 router.delete("/users/:id/follow", async (req, res) => {
   const followerId = req.user!.sub;
   const followingId = req.params.id;
+  if (!isValidUuid(followingId)) { res.status(400).json({ message: "Invalid user id" }); return; }
   await db.execute(sql`DELETE FROM follows WHERE follower_id = ${followerId} AND following_id = ${followingId}`);
   res.json({ following: false });
 });
@@ -84,8 +105,8 @@ router.delete("/users/:id/follow", async (req, res) => {
 router.get("/posts", async (req, res) => {
   const tag = req.query.tag as string | undefined;
   const postType = req.query.type as string | undefined; // 'post' | 'clip'
-  const limit = Math.min(Number(req.query.limit ?? 30), 100);
-  const offset = Number(req.query.offset ?? 0);
+  const limit = parseLimit(req.query.limit, 30, 100);
+  const offset = parseOffset(req.query.offset);
   const userId = req.user!.sub;
 
   let whereClause = sql`1=1`;
@@ -111,7 +132,7 @@ router.get("/posts", async (req, res) => {
 // AI-personalized feed
 router.get("/posts/personalized", async (req, res) => {
   const userId = req.user!.sub;
-  const limit = Math.min(Number(req.query.limit ?? 30), 50);
+  const limit = parseLimit(req.query.limit, 30, 50);
 
   // Get user's active quests/goals for context
   const userGoals = await db.execute(sql`
@@ -170,39 +191,65 @@ router.post("/posts", async (req, res) => {
   if (!caption && !imageUrl && !videoUrl) {
     res.status(400).json({ message: "Post must have content" }); return;
   }
-  const tags: string[] = Array.isArray(hashtags) ? hashtags.map((t: string) => t.toLowerCase().replace(/^#/, "")) : [];
+  const tags: string[] = Array.isArray(hashtags)
+    ? hashtags.filter((t: unknown): t is string => typeof t === "string").map((t) => t.toLowerCase().replace(/^#/, ""))
+    : [];
   const type = postType === "clip" ? "clip" : "post";
-  const rows = await db.execute(sql`
-    INSERT INTO posts (user_id, caption, image_url, video_url, hashtags, post_type)
-    VALUES (${userId}, ${caption ?? null}, ${imageUrl ?? null}, ${videoUrl ?? null}, ${JSON.stringify(tags)}::text[], ${type})
-    RETURNING *
-  `);
-  res.status(201).json((rows as any).rows?.[0] ?? (rows as any)[0] ?? rows);
+  const [row] = await db
+    .insert(postsTable)
+    .values({
+      userId,
+      caption: caption ?? null,
+      imageUrl: imageUrl ?? null,
+      videoUrl: videoUrl ?? null,
+      hashtags: tags,
+      postType: type,
+    })
+    .returning();
+  res.status(201).json(row);
 });
 
 router.delete("/posts/:id", async (req, res) => {
   const userId = req.user!.sub;
-  await db.execute(sql`DELETE FROM posts WHERE id = ${req.params.id} AND user_id = ${userId}`);
+  if (!isValidUuid(req.params.id)) { res.status(400).json({ message: "Invalid post id" }); return; }
+  const deleted = await db
+    .delete(postsTable)
+    .where(and(eq(postsTable.id, req.params.id), eq(postsTable.userId, userId)))
+    .returning({ id: postsTable.id });
+  if (deleted.length === 0) {
+    res.status(404).json({ message: "Post not found" }); return;
+  }
   res.json({ deleted: true });
 });
 
 router.post("/posts/:id/like", async (req, res) => {
   const userId = req.user!.sub;
   const postId = req.params.id;
-  await db.execute(sql`
-    INSERT INTO post_likes (user_id, post_id) VALUES (${userId}, ${postId}) ON CONFLICT DO NOTHING;
-    UPDATE posts SET likes_count = likes_count + 1 WHERE id = ${postId}
-  `);
+  if (!isValidUuid(postId)) { res.status(400).json({ message: "Invalid post id" }); return; }
+  const [post] = await db.select({ id: postsTable.id }).from(postsTable).where(eq(postsTable.id, postId)).limit(1);
+  if (!post) { res.status(404).json({ message: "Post not found" }); return; }
+  const [inserted] = await db
+    .insert(postLikesTable)
+    .values({ userId, postId })
+    .onConflictDoNothing()
+    .returning();
+  if (inserted) {
+    await db.execute(sql`UPDATE posts SET likes_count = likes_count + 1 WHERE id = ${postId}`);
+  }
   res.json({ liked: true });
 });
 
 router.delete("/posts/:id/like", async (req, res) => {
   const userId = req.user!.sub;
   const postId = req.params.id;
-  await db.execute(sql`
-    DELETE FROM post_likes WHERE user_id = ${userId} AND post_id = ${postId};
-    UPDATE posts SET likes_count = GREATEST(likes_count - 1, 0) WHERE id = ${postId}
-  `);
+  if (!isValidUuid(postId)) { res.status(400).json({ message: "Invalid post id" }); return; }
+  const [removed] = await db
+    .delete(postLikesTable)
+    .where(and(eq(postLikesTable.userId, userId), eq(postLikesTable.postId, postId)))
+    .returning();
+  if (removed) {
+    await db.execute(sql`UPDATE posts SET likes_count = GREATEST(likes_count - 1, 0) WHERE id = ${postId}`);
+  }
   res.json({ liked: false });
 });
 
@@ -222,9 +269,17 @@ router.post("/uploads", upload.single("file"), async (req, res) => {
     const ext = rawExt === "jpeg" ? "jpg" : rawExt === "quicktime" ? "mov" : rawExt;
     const objectPath = await storage.uploadBufferAsEntity(file.buffer, file.mimetype, ext);
     res.json({ objectPath, type: isImage ? "image" : "video" });
-  } catch (err: any) {
-    console.error("Upload error:", err);
-    res.status(500).json({ message: err.message ?? "Upload failed" });
+  } catch (err: unknown) {
+    logger.error(
+      {
+        event: "external.storage.failed",
+        category: "external_service",
+        operation: "upload",
+        err: err instanceof Error ? err : new Error(String(err)),
+      },
+      "Object storage upload failed",
+    );
+    res.status(500).json({ message: "Upload failed" });
   }
 });
 
@@ -238,8 +293,17 @@ router.post("/uploads/request-url", async (req, res) => {
     const uploadURL = await storage.getObjectEntityUploadURL();
     const objectPath = storage.normalizeObjectEntityPath(uploadURL);
     res.json({ uploadURL, objectPath });
-  } catch (err: any) {
-    res.status(500).json({ message: err.message });
+  } catch (err: unknown) {
+    logger.error(
+      {
+        event: "external.storage.failed",
+        category: "external_service",
+        operation: "presigned_url",
+        err: err instanceof Error ? err : new Error(String(err)),
+      },
+      "Object storage presigned-url failed",
+    );
+    res.status(500).json({ message: "Upload failed" });
   }
 });
 

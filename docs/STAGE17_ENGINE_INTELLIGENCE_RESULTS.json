@@ -1,0 +1,117 @@
+{
+  "stage": 17,
+  "title": "Engine Intelligence & Decision Validation",
+  "status": "COMPLETE",
+  "verdict": "GREEN",
+  "architecture_decision": "A",
+  "architecture_decision_label": "Multi-engine coherent — no arbitration layer required",
+  "central_question": "Do the deterministic engines make coherent, useful, internally consistent decisions for realistic, extreme, sparse, and contradictory user states?",
+  "answer": "Yes, after 4 confirmed correctness defects were reproduced and fixed with minimal, regression-tested changes. No speculative architecture, no AI added to deterministic features, no schema changes.",
+  "baseline": {
+    "commit": "503f5e04aeef62e4b718b32927f78863b48507ba",
+    "tests_before": "110/110",
+    "database": "PostgreSQL 18.4 (fresh cluster, migrations applied)"
+  },
+  "defects": [
+    {
+      "id": 1,
+      "name": "Recovery workload contradiction",
+      "file": "daily-plan-engine.ts",
+      "reproduce": "detectRecoveryMode active:true suggestedDailyTasks:3, but buildDailyPlan listed 5 tasks",
+      "root_cause": "buildDailyPlan ignored recovery.suggestedDailyTasks and mapped the full task array",
+      "fix": "plannedTasks = recovery.active ? tasks.slice(0, recovery.suggestedDailyTasks) : tasks",
+      "class": "D",
+      "regression_test": "life-engine-intelligence.test.ts (recovery vs daily plan)"
+    },
+    {
+      "id": 2,
+      "name": "Forecast active-day denominator",
+      "file": "milestone-forecast-engine.ts",
+      "reproduce": "300 XP over 3 active days in 7 days -> daysEstimated 3, basis '100 XP/day over last 3 active day(s)'",
+      "root_cause": "recent XP divided by count of active days instead of calendar days",
+      "fix": "denominator fixed at 7 calendar days; daysEstimated = ceil(xpNeeded*7/recentXp); basis 'last 7 days'",
+      "class": "D",
+      "regression_test": "life-engine-intelligence.test.ts (forecast calendar-day denominator)"
+    },
+    {
+      "id": 3,
+      "name": "Chat intent over-matching",
+      "file": "intents.ts",
+      "reproduce": "explain->xp, question->quests, experience->xp, expect->xp, request->quests",
+      "root_cause": "substring includes() matched short tokens inside longer words",
+      "fix": "whole-word boundary matching for single-token patterns; plural variants added",
+      "class": "D",
+      "regression_test": "life-engine-intelligence.test.ts (intent over-matching)"
+    },
+    {
+      "id": 4,
+      "name": "Weakness false positives on sparse data",
+      "file": "weakness-engine.ts",
+      "reproduce": "totalXp 15, STRENGTH 7 -> 6 weaknesses each score 55 / confidence 0.67",
+      "root_cause": "low-attribute gap gated only on maxAttr > 0, flagging untrained (0) attributes",
+      "fix": "condition now maxAttr > 0 && state.attributes[a] > 0",
+      "class": "D",
+      "regression_test": "life-engine-intelligence.test.ts (insufficient data != poor performance)"
+    }
+  ],
+  "tests": {
+    "total": 138,
+    "passed": 138,
+    "failed": 0,
+    "files": 12,
+    "baseline": 110,
+    "new_intelligence_tests": 24,
+    "new_extremes_tests": 4,
+    "new_files": [
+      "artifacts/api-server/src/tests/life-engine-intelligence.test.ts",
+      "artifacts/api-server/src/tests/life-engine-extremes.test.ts"
+    ]
+  },
+  "verification": {
+    "typecheck": "PASS",
+    "tests": "PASS (138/138)",
+    "real_postgres": "PASS (PostgreSQL 18.4)",
+    "build": "PASS",
+    "api_smoke": "PASS (11 life-engine endpoints + legacy paths, all 200)",
+    "security_smoke": "PASS (two-user IDOR: 0 leaks; unauth -> 401)",
+    "sse_smoke": "PASS (200, text/event-stream, keep-alive)",
+    "offline_smoke": "PASS (no GROQ_API_KEY; deterministic surfaces work; open-ended chat 503 graceful)"
+  },
+  "extreme_states": {
+    "cases": ["A_empty", "B_huge_level", "C_huge_xp_event", "D_sparse_single_event", "E_all_max_attributes", "F_broken_streak", "G_negative_lookalike", "H_many_quests", "I_many_daily_tasks", "J_future_timestamps"],
+    "nan_inf_negative_count": 0
+  },
+  "contradictory_signals": {
+    "cases": ["c1 stale streak", "c2 rising XP broken streak", "c3 max attributes no XP", "c4 completed quests no XP", "c5 falling trend active today", "c6 strength goal mind attributes"],
+    "bad_values": 0,
+    "coherent": true
+  },
+  "personalization": {
+    "users": 5,
+    "distinct_daily_plans": 5,
+    "identical_state_identical_output": true
+  },
+  "determinism": "byte-identical JSON across repeated calls for every engine",
+  "performance": {
+    "events_10_ms": 0.197,
+    "events_100_ms": 0.323,
+    "events_1000_ms": 0.372,
+    "n_plus_1": "none",
+    "optimization": "none needed"
+  },
+  "architecture": {
+    "dependency_graph": "flat composition via orchestrator; single intra-engine edge quest-engine -> recommendation-engine",
+    "duplicated_signals": "weakestAttribute and goal keys read-only in two places, consistent, no loop",
+    "arbitration_layer": "none (no class C contradiction found)"
+  },
+  "schema_changes": "NO",
+  "ai_changes": "NONE (no AI added to deterministic features)",
+  "final_report": {
+    "CONFIRMED DEFECTS FIXED": 4,
+    "CONTRADICTION CLASSES": "D x4 (correctness), C x0 (no arbitration needed)",
+    "TEST COUNT": "138/138",
+    "VERDICT": "GREEN",
+    "ARCHITECTURE DECISION": "A",
+    "RECOMMENDED NEXT STEP": "Proceed to release; engines are internally consistent and regression-protected"
+  }
+}

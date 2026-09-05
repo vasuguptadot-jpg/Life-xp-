@@ -1,0 +1,70 @@
+{
+  "stage": 5,
+  "repository": {
+    "files": 2422,
+    "commit": "25cbdf2d7f267ebae83606e86336d7712622d70a",
+    "clean": false,
+    "note": "Environment reset: Stage 3 (e2b7ffa) and Stage 4 (bc24ce9) commits absent from history; 2322 uncommitted working-tree changes (2305 D / 12 M / 5 ??) carry the on-disk minimized state."
+  },
+  "database": {
+    "connection": "ISOLATED_EMBEDDED_POSTGRESQL_16_PGLITE",
+    "live_schema_verified": false,
+    "migration_verified": true,
+    "fresh_database_verified": true,
+    "staging_verified": false,
+    "note": "DATABASE_URL missing; no live inspection. 62 migration statements applied to empty embedded PG16 -> 23 tables, 0 missing."
+  },
+  "features": {
+    "auth": "PASS",
+    "onboarding": "PARTIAL",
+    "progression": "UNVERIFIED",
+    "quests": "PARTIAL",
+    "ai": "CONFIGURATION_BLOCKED",
+    "social": "FAIL",
+    "messaging": "FAIL",
+    "storage": "CONFIGURATION_BLOCKED"
+  },
+  "security": {
+    "authz": "PASS",
+    "sse": "PASS",
+    "object_storage": "UNVERIFIED",
+    "cors": "PASS",
+    "secret_scan": "PASS"
+  },
+  "build": {
+    "install": "PASS",
+    "typecheck": "PASS",
+    "root_build": "PASS",
+    "web_build": "PASS",
+    "backend_build": "PASS"
+  },
+  "tests": {
+    "automated_suite": "AUTOMATED_TEST_SUITE_ABSENT"
+  },
+  "bugs": [
+    {
+      "id": "BUG-1",
+      "severity": "BLOCKER",
+      "endpoint": "POST /api/social/posts",
+      "file": "artifacts/api-server/src/routes/social.ts",
+      "summary": "Hashtags inserted as JSON.stringify(tags)::text[]; PostgreSQL array literals use {} not [], so '[\"fitness\"]' and '[]' are malformed array literals. Post creation fails 100% of the time.",
+      "repro": "Reproduced on fresh embedded PostgreSQL (single statement), independent of harness."
+    },
+    {
+      "id": "BUG-2",
+      "severity": "BLOCKER",
+      "endpoint": "POST /api/messages/conversations",
+      "file": "artifacts/api-server/src/routes/messages.ts",
+      "summary": "CTE inserts members via unnest(ARRAY[$1,$2]) which yields text[] into a uuid column. Conversation creation fails 100% of the time.",
+      "repro": "Reproduced on fresh embedded PostgreSQL (single statement), independent of harness."
+    },
+    {
+      "id": "BUG-3",
+      "severity": "HIGH",
+      "endpoint": "server startup",
+      "file": "artifacts/api-server/src/routes/social.ts:15",
+      "summary": "new Groq({ apiKey: process.env.GROQ_API_KEY }) throws at module load when GROQ_API_KEY is unset, so the API server fails to boot without it. Contradicts documented graceful degradation."
+    }
+  ],
+  "final_classification": "RED"
+}

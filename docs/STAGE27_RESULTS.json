@@ -1,0 +1,203 @@
+{
+  "stage": "STAGE27",
+  "title": "Production Acceptance Gate & Release Certification",
+  "classification": "YELLOW",
+  "decision": "YELLOW — production-ready CONDITIONAL on deployment prerequisites (application code fully verified; browser UX, live Groq, and reverse-proxy topology UNVERIFIED in this environment)",
+  "decision_phrase": "STAGE 27 decision: YELLOW — the application is production-ready: 447/447 tests pass, the complete user lifecycle, cross-user isolation, XP economy (ledger SUM == total_xp, no negative/duplicate/client-controlled rewards), data integrity (likes_count, orphans, level formula), the AI trust boundary (deterministic engines + graceful 503 fallback), security (no auth bypass, no IDOR, no SQLi/XSS, no secret leakage, timing-enumeration oracle closed), observability (X-Request-Id + structured events), DB failure/recovery (readiness 503→200, pool auto-reconnect, no crash), concurrency (exactly-one mutation, no duplicate XP), performance (auth never starves unrelated users), and backup/restore (23 tables + XP ledger round-trip) are all verified by executed evidence. GREEN is withheld because three deployment-dependent surfaces remain UNVERIFIED in this environment: real-browser UX (no Chromium), live Groq AI provider (no GROQ_API_KEY), and the reverse-proxy trust topology (trust proxy=1 vs production proxy), plus documented infrastructure-owned prerequisites (backup/PITR/RPO/RTO, object-storage sidecar, TLS/security headers at the proxy).",
+  "commit": "293cd6f",
+  "environment": {
+    "node": "v22.22.3",
+    "pnpm": "10.34.5",
+    "postgres": "18.4 (embedded, 127.0.0.1:5434)",
+    "bcrypt": "6.0.0 (native; bcryptjs absent)",
+    "pg": "8.22.0",
+    "branch": "arena/01a05271-life-xp",
+    "note": "Environment was reset (fresh clone at base 25cbdf2 with the Stage 20-26.1 working tree as uncommitted changes). The authoritative Stage 26.1 commit 293cd6f was recovered from the remote and re-verified from scratch (deps re-installed, embedded PostgreSQL re-provisioned, migrations re-applied)."
+  },
+  "baseline": {
+    "commit": "293cd6f",
+    "migrations_applied": 4,
+    "tables": 23,
+    "archetypes_seeded": 7,
+    "full_suite": "447/447 (44 files)",
+    "typecheck": "PASS",
+    "production_build": "PASS (api-server + web)",
+    "secret_scan": "clean (placeholders only)"
+  },
+  "part2_lifecycle": {
+    "checks": 41,
+    "passed": 41,
+    "failed": 0,
+    "xp_ledger_invariant": "SUM(xp_transactions) == total_xp (70 == 70)"
+  },
+  "part3_auth": {
+    "concurrent_login": {
+      "C1": { "signin_p50_ms": 262.5, "healthz_p50_ms": 1.4, "healthz_p99_ms": 9.0, "healthz_max_ms": 9.0 },
+      "C4": { "signin_p50_ms": 566.1, "healthz_p50_ms": 0.9, "healthz_p99_ms": 8.1, "healthz_max_ms": 8.1 },
+      "C8": { "signin_p50_ms": 1102.0, "healthz_p50_ms": 1.0, "healthz_p99_ms": 11.4, "healthz_max_ms": 13.4 },
+      "C16": { "signin_p50_ms": 1631.4, "healthz_p50_ms": 1.2, "healthz_p99_ms": 8.8, "healthz_max_ms": 16.1 }
+    },
+    "cases": {
+      "valid_login": "200", "invalid_password": "401", "nonexistent": "401 (timing-equalized)",
+      "inactive": "401", "expired_token": "401", "malformed_token": "401",
+      "forged_token": "401", "no_token": "401", "refresh_rotation_replay": "401",
+      "logout_then_refresh": "401", "deleted_account": "401",
+      "password_hashing": "bcrypt $2b$12$ cost 12", "timing_enumeration": "closed (~5ms delta)"
+    }
+  },
+  "part4_isolation": {
+    "b_read_a_quest": "404", "b_mutate_a_quest": "404", "b_complete_a_quest": "404",
+    "b_complete_a_daily_task": "404", "b_read_a_profile": "404 (no PII)",
+    "b_goals_contain_a_goals": false, "a_xp_unchanged_by_b": "70 -> 70"
+  },
+  "part5_xp_economy": {
+    "ledger_sum": 150, "total_xp_sum": 150, "equal": true,
+    "negative_xp_rows": 0, "per_user_ledger_mismatch": 0,
+    "level_formula_mismatch": "0 for application data (13 test-fixture rows with total_xp=0 excluded)"
+  },
+  "part6_data_integrity": {
+    "likes_count_mismatch": 0, "orphan_xp_transactions": 0,
+    "fk_unique_check_constraints": "verified", "migration_ordering": "4 entries monotonic"
+  },
+  "part7_ai_boundary": {
+    "daily_tasks": "deterministic engine (works)",
+    "life_tip": "deterministic engine (same tip repeated)",
+    "chat": "503 'AI coach is not configured' without GROQ_API_KEY",
+    "groq_api_key": "UNSET",
+    "live_provider": "UNVERIFIED"
+  },
+  "part8_security": {
+    "suites": ["stage23-security-audit", "security-regression", "diagnostic-security", "input-fuzz", "uuid-validation", "refresh-rotation", "rate-limiting", "sse-auth", "resource-exhaustion"],
+    "result": "all passed (in 447)",
+    "trust_proxy": "1 (deployment-dependent — F-27-01)",
+    "security_headers": "none added; relies on reverse proxy (documented Stage 23)"
+  },
+  "part9_observability": {
+    "x_request_id_header": true,
+    "structured_events": ["request completed", "xp.awarded", "auth.failed", "rate_limit.rejected", "database.pool.error", "readiness.failed", "request.error"],
+    "no_pii_leak": true
+  },
+  "part10_failure_recovery": {
+    "db_outage_api_alive": true, "readyz_during_outage": 503, "readyz_after_restart": 200,
+    "pool_recovered": true, "no_crash": true,
+    "ai_failure": "503 chat, deterministic endpoints serve",
+    "sse_lifecycle": "covered by sse-lifecycle + sse-auth suites"
+  },
+  "part11_concurrency": {
+    "suites": ["daily-task-concurrency", "multi-device-concurrency", "idempotency-audit"],
+    "result": "exactly-one mutation, no duplicate XP, no orphans"
+  },
+  "part12_performance": {
+    "server_rss_idle_mb": 133, "threads": 11,
+    "auth_preserves_responsiveness": "healthz <=16ms max during 16-way signin storm"
+  },
+  "part13_browser": "UNVERIFIED (no Chromium in sandbox)",
+  "part14_deployment": {
+    "application_scope": "verified (env fail-fast, CORS, proxy, health/readyz, logging, startup, pool cleanup)",
+    "infra_scope": ["TLS termination", "reverse proxy XFF overwrite", "live secrets", "object-storage sidecar", "backup/PITR"]
+  },
+  "part15_backup_restore": {
+    "method": "COPY protocol (pg_dump not bundled)",
+    "tables": 23, "xp_ledger_sum": 150, "round_trip": "VERIFIED (identical row counts + XP ledger + totals)",
+    "pitr_rpo_rto": "infrastructure-owned (not demonstrated)"
+  },
+  "findings": [
+    {
+      "id": "F-27-01",
+      "severity": "C",
+      "description": "trust proxy=1 trusts one X-Forwarded-For hop; when the API is directly reachable, XFF can be spoofed to defeat the IP-keyed auth rate limiter.",
+      "evidence": "Stage 26.1: 25/25 signins with unique XFF returned 401 (zero 429s).",
+      "status": "open (deployment-dependent)",
+      "resolution": "Deploy behind a reverse proxy that overwrites X-Forwarded-For, or disable trust proxy when directly exposed.",
+      "regression_test": "rate-limiting.test.ts"
+    },
+    {
+      "id": "F-27-02",
+      "severity": "UNVERIFIED",
+      "description": "Real-browser acceptance (mobile/desktop, full lifecycle, refresh/back/forward/double-click/offline) not executed — no Chromium in sandbox.",
+      "evidence": "no puppeteer cache / system chromium / puppeteer dep.",
+      "status": "unverified",
+      "resolution": "Run Part 13 on a staging deploy with real Chromium.",
+      "regression_test": null
+    },
+    {
+      "id": "F-27-03",
+      "severity": "UNVERIFIED",
+      "description": "Live Groq AI provider generation not executed — GROQ_API_KEY unset.",
+      "evidence": "chat returns 503 'AI coach is not configured'.",
+      "status": "unverified (deterministic fallback verified)",
+      "resolution": "Provision GROQ_API_KEY and validate live generation.",
+      "regression_test": "ai-boundary.test.ts"
+    },
+    {
+      "id": "F-27-04",
+      "severity": "C",
+      "description": "pg_dump/psql not bundled in runtime; logical backup uses COPY protocol. PITR/RPO/RTO are infrastructure-owned.",
+      "evidence": "runtime bin contains only initdb/pg_ctl/postgres; backup/restore verified via pg-copy-streams.",
+      "status": "open (infra)",
+      "resolution": "Managed backup + PITR at infrastructure layer.",
+      "regression_test": "stage24-data-integrity.test.ts"
+    },
+    {
+      "id": "F-27-05",
+      "severity": "C",
+      "description": "No SIGTERM/SIGINT drain handler (clean exit but no in-flight request drain).",
+      "evidence": "index.ts has no process.on(SIGTERM) / server.close().",
+      "status": "open (documented LOW since Stage 11)",
+      "resolution": "Add drain handler if a draining LB is used.",
+      "regression_test": null
+    },
+    {
+      "id": "F-27-06",
+      "severity": "C",
+      "description": "No security-header middleware (helmet/HSTS/CSP); relies on reverse proxy for transport/TLS headers.",
+      "evidence": "no security headers on responses; documented Stage 23.",
+      "status": "open (documented, deliberate)",
+      "resolution": "Set headers at the proxy (or add header middleware).",
+      "regression_test": null
+    },
+    {
+      "id": "F-27-07",
+      "severity": "C",
+      "description": "Quest templates have no committed seed script; must be provisioned out-of-band.",
+      "evidence": "seed-archetypes exists; no quest-template seed.",
+      "status": "open (documented)",
+      "resolution": "Provision quest templates via migration/seed.",
+      "regression_test": null
+    },
+    {
+      "id": "F-27-08",
+      "severity": "C",
+      "description": "No automated backup/PITR in the repository.",
+      "evidence": "docs + repo scan; restore demonstrated manually.",
+      "status": "open (infra)",
+      "resolution": "Managed backups at infrastructure layer.",
+      "regression_test": null
+    },
+    {
+      "id": "F-27-09",
+      "severity": "C",
+      "description": "Object storage depends on the Replit sidecar (127.0.0.1:1106); unverified in sandbox.",
+      "evidence": "objectStorage.ts uses Replit external_account credentials.",
+      "status": "open (infra)",
+      "resolution": "Provision object-storage sidecar + PUBLIC_OBJECT_SEARCH_PATHS.",
+      "regression_test": null
+    }
+  ],
+  "fixes": [],
+  "final_decision": {
+    "classification": "YELLOW",
+    "A": 0, "B": 0, "C": 7, "D": 0, "UNVERIFIED": 2,
+    "production_ready": "CONDITIONAL",
+    "prerequisites": [
+      "reverse proxy with X-Forwarded-For overwrite (or trust proxy off)",
+      "provision GROQ_API_KEY and validate live AI",
+      "run real-browser acceptance (Part 13) on staging",
+      "managed backups + PITR + RPO/RTO with restore drill",
+      "object-storage sidecar + PUBLIC_OBJECT_SEARCH_PATHS",
+      "CORS_ORIGINS production allow-list",
+      "quest-template seed out-of-band",
+      "security headers / HSTS at the proxy"
+    ]
+  }
+}

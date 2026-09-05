@@ -1,0 +1,145 @@
+{
+  "stage": "Stage 23 — Adversarial Security, Authorization & Trust-Boundary Audit",
+  "decision": "GREEN",
+  "baseline": {
+    "remote_head": "6297138",
+    "branch": "arena/01a05271-life-xp",
+    "baseline_tests": "344/344 (40 files), 73.36s",
+    "baseline_typecheck": "PASS",
+    "baseline_build": "PASS",
+    "baseline_secret_scan": "clean",
+    "database": "PostgreSQL 18.4 (lifexp)",
+    "runtime": "Node 22.22.3, pnpm 10.34.5"
+  },
+  "test_suite": {
+    "file": "artifacts/api-server/src/tests/stage23-security-audit.test.ts",
+    "tests": 28,
+    "result": "28/28 PASS (stable across two runs)",
+    "full_regression": "372/372 (41 files)"
+  },
+  "authentication": {
+    "missing_malformed_forged_token": "401",
+    "wrong_secret_forgery": "401 (no alg confusion)",
+    "alg_none": "401",
+    "expired_token": "401",
+    "enumeration": "uniform 401 (no account enumeration)",
+    "verdict": "SAFE"
+  },
+  "authorization_idor": {
+    "cross_user_quests": "rejected (404/403)",
+    "cross_user_daily_task": "rejected",
+    "cross_user_conversation": "rejected",
+    "cross_user_post": "rejected",
+    "cross_user_profile": "rejected (self-only)",
+    "cross_user_chat_goals": "rejected",
+    "server_side_only": true,
+    "verdict": "SAFE"
+  },
+  "vertical_escalation": {
+    "role_in_body_query_cookie": "ignored",
+    "admin_debug_endpoints": "none beyond healthz/readyz",
+    "verdict": "SAFE"
+  },
+  "input_injection": {
+    "sqli_caption_hashtags_tag_chat": "inert (parameterized)",
+    "malformed_uuid": "400 (never 500)",
+    "verdict": "SAFE"
+  },
+  "progression_economy": {
+    "arbitrary_xp_mint": "not possible",
+    "negative_huge_nan_xp": "rejected",
+    "replay_completion": "0 XP (idempotent)",
+    "transactional_complete": true,
+    "verdict": "SAFE"
+  },
+  "ai_boundary": {
+    "prompt_injection_mint_xp": "impossible",
+    "prompt_injection_read_other_user": "impossible",
+    "deterministic_answers_user_scoped": true,
+    "groq_only_open_ended": true,
+    "verdict": "SAFE"
+  },
+  "sse_isolation": {
+    "non_member_subscribe": "403",
+    "token_required": "query or bearer",
+    "verdict": "SAFE"
+  },
+  "disclosure": {
+    "invalid_vs_nonexistent_vs_unauthorized": "distinct-but-safe codes",
+    "server_error_body": "generic (no stack/SQL/path/env)",
+    "verdict": "SAFE (C-1 fixed)"
+  },
+  "xss": {
+    "stored_script_svg_caption_displayname_bio": "stored verbatim, never rendered",
+    "innerHTML_dangerouslySetInnerHTML": "none in render path",
+    "verdict": "SAFE"
+  },
+  "csrf_cors": {
+    "cors_prod": "restricted to CORS_ORIGINS",
+    "cors_dev": "allow all",
+    "auth_mechanism": "bearer token (no ambient cookie session)",
+    "csrf_mechanism": "N/A (architecture-incompatible, deliberately not added)",
+    "verdict": "ACCEPTABLE"
+  },
+  "rate_limiting": {
+    "mutation_limiter": "user-keyed, bounded",
+    "auth_limiter": "signup/signin",
+    "rejection": "429 + anonymized rate_limit.rejected (no enumeration)",
+    "verdict": "EFFECTIVE"
+  },
+  "secrets": {
+    "scan_scope": "all source/build/config, credential patterns (Groq/OpenAI/AWS/GitHub/private-key/DB-URL)",
+    "real_secrets_found": 0,
+    "groq_api_key": "env-only (placeholder in .env.example)",
+    "verdict": "CLEAN"
+  },
+  "dependencies": {
+    "express": "5.2.1",
+    "jsonwebtoken": "9.0.3",
+    "pg": "8.22.0",
+    "drizzle-orm": "0.45.2",
+    "zod": "3.25.76",
+    "groq-sdk": "1.5.0",
+    "vite": "7.3.6",
+    "upgraded": "none (none required)",
+    "npm_audit": "UNREACHABLE (sandbox network ERR_SOCKET_TIMEOUT) — residual-risk limitation",
+    "verdict": "CURRENT BY INSPECTION"
+  },
+  "findings": [
+    {
+      "id": "C-1",
+      "class": "C",
+      "summary": "Public profile endpoint leaked date_of_birth + activity_level to any authenticated user",
+      "status": "FIXED",
+      "root_cause": "db.select().from(userProfilesTable) selected all columns",
+      "fix": "explicit public-field projection",
+      "regression_test": "stage23-security-audit.test.ts — 'FINDING (C-1, FIXED)'"
+    },
+    {
+      "id": "C-2",
+      "class": "C",
+      "summary": "Signup accepts non-string / malformed / unbounded emails (stored as JSON string / no format / no length cap)",
+      "status": "DOCUMENTED (pre-existing C)",
+      "consequence": "data-integrity only — no auth/XP/cross-user impact"
+    },
+    {
+      "id": "B",
+      "class": "B",
+      "summary": "Loose numeric coercion on quest progress (Number(null)=0, Number([])=0, Number(true)=1)",
+      "status": "DOCUMENTED (benign)",
+      "consequence": "200 IN_PROGRESS, zero XP, no corruption/authz bypass"
+    }
+  ],
+  "residual_risk": [
+    "Signup email validation (C-2) un-fixed by design — no product email spec",
+    "Live npm audit unreachable from sandbox; versions verified by inspection",
+    "Object-storage upload path not exercised end-to-end (backend unavailable); inspected only"
+  ],
+  "regression": {
+    "stage23_suite": "28/28",
+    "full_suite": "372/372 (41 files)",
+    "typecheck": "PASS",
+    "build": "PASS",
+    "secret_scan": "clean"
+  }
+}

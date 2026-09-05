@@ -1,0 +1,159 @@
+{
+  "stage": "Stage 25 — Database Invariants, XP Economy Hardening & Authoritative State Audit",
+  "decision": "GREEN",
+  "baseline": {
+    "authoritative_commit": "553039e",
+    "branch": "arena/01a05271-life-xp",
+    "recovery_note": "Environment reset to 25cbdf2; recovered 553039e via git fetch + reset --hard",
+    "git_status": "clean",
+    "postgresql": "18.4 (embedded-postgres 18.4.0-beta.17)",
+    "node": "22.22.3",
+    "pnpm": "10.34.5",
+    "migrations": "2 (0000, 0001) applied",
+    "baseline_tests": "393/393 (42 files)",
+    "typecheck": "PASS",
+    "build": "PASS",
+    "secret_scan": "clean"
+  },
+  "xp_invariant": {
+    "column": "xp_transactions.amount",
+    "datatype": "integer NOT NULL",
+    "constraints_before": ["NOT NULL", "FK users CASCADE", "no CHECK"],
+    "negative_insert_before": "ACCEPTED (-1, -50, -999999999)",
+    "classification": "D",
+    "fix": "CHECK (amount >= 0) via migration 0002_majestic_exiles",
+    "negative_insert_after": "REJECTED (23514 xp_transactions_amount_nonnegative)",
+    "zero_positive": "accepted",
+    "overflow": "2147483648 rejected (22003)"
+  },
+  "total_xp_consistency": {
+    "relationship": "SUM(xp_transactions.amount) == user_levels.total_xp",
+    "verified_across": ["first award", "multiple awards", "replay", "concurrent awards", "rollback", "quest completion", "daily task completion", "account deletion"],
+    "no_ledger_only_xp": true,
+    "no_total_only_xp": true
+  },
+  "xp_boundary": {
+    "nan_infinity_negative_ignored": true,
+    "decimal_rejected_no_truncation": true,
+    "string_boolean_rejected": true,
+    "no_overflow_wrap": true,
+    "no_client_xp_input": true
+  },
+  "xp_sources": [
+    { "source": "QUEST_COMPLETION", "idempotency": "quest_complete_{user}_{template}", "transactional": true },
+    { "source": "DAILY_TASK", "idempotency": "daily_task_{taskId}", "transactional": true }
+  ],
+  "source_integrity": {
+    "fabricated_quest_id": "404",
+    "other_users_quest_id": "404",
+    "fabricated_task_id": "404",
+    "other_users_task_id": "404",
+    "duplicated_idempotency_key": "UNIQUE violation (1 row)",
+    "modified_reward_amount": "ignored (server-derived)"
+  },
+  "quest_state_machine": {
+    "progress_on_completed": "400",
+    "progress_awards_xp": false,
+    "progress_transitions_to_completed": false,
+    "replay_completed": "idempotent (alreadyAwarded)",
+    "abandoned_complete": "400",
+    "concurrent_complete": "exactly once"
+  },
+  "daily_task_state_machine": {
+    "repeated_complete": "alreadyCompleted, 0 XP",
+    "concurrent_complete": "exactly once",
+    "other_users_task": "404"
+  },
+  "goals": {
+    "user_scoped": true,
+    "cross_user_update_possible": false,
+    "a_goals_never_reach_b": true
+  },
+  "denormalized_counters": [
+    { "counter": "posts.likes_count", "source": "post_likes", "verified_synchronized": true },
+    { "counter": "user_levels.total_xp", "source": "xp_transactions", "verified_synchronized": true }
+  ],
+  "constraints_added": [
+    { "table": "xp_transactions", "constraint": "xp_transactions_amount_nonnegative", "def": "amount >= 0" },
+    { "table": "user_levels", "constraint": "user_levels_total_xp_nonnegative", "def": "total_xp >= 0" },
+    { "table": "user_levels", "constraint": "user_levels_current_level_positive", "def": "current_level >= 1" },
+    { "table": "user_attributes", "constraint": "user_attributes_current_value_nonnegative", "def": "current_value >= 0" },
+    { "table": "attribute_history", "constraint": "attribute_history_delta_nonnegative", "def": "delta >= 0" }
+  ],
+  "foreign_keys": {
+    "total": 25,
+    "user_owned_cascade": "all CASCADE",
+    "reference_data_no_action": ["quest_templates", "archetypes"],
+    "no_accidental_cascade": true,
+    "no_orphaned_authoritative_data": true
+  },
+  "unique_constraints": {
+    "race_sensitive_unique": ["post_likes(user,post)", "follows(follower,following)", "conversation_members(conv,user)", "xp_transactions.idempotency_key", "user_levels.user_id", "user_attributes(user,attribute)", "attribute_history(source_id,attribute)"],
+    "concurrent_duplicate_protected": true,
+    "daily_task_generation_advisory_lock": true
+  },
+  "null_default_semantics": {
+    "authoritative_not_null": ["amount", "source_type", "user_id", "delta", "current_value", "total_xp"],
+    "genuinely_optional_nullable": ["source_id", "idempotency_key", "category", "description", "expires_at", "completed_at", "revoked_at"]
+  },
+  "timestamps": {
+    "server_controlled": ["created_at", "completed_at", "updated_at"],
+    "client_cannot_forge": true,
+    "forged_created_at_ignored": true
+  },
+  "roles": {
+    "local_test_role": "postgres (superuser, embedded-postgres)",
+    "production_role": "dedicated app role via DATABASE_URL (non-superuser)",
+    "distinction": "documented",
+    "check_enforced_all_roles": true
+  },
+  "transactional_consistency": {
+    "quest_completion_atomic": true,
+    "daily_task_completion_atomic": true,
+    "no_partial_state": true
+  },
+  "concurrency_soak": {
+    "rounds": 10,
+    "concurrent_completions_per_round": 3,
+    "duplicates": 0,
+    "invariant_violations": 0,
+    "flakes": 0
+  },
+  "direct_db_adversarial": {
+    "negative_xp": "rejected",
+    "negative_total_xp": "rejected",
+    "current_level_lt_1": "rejected",
+    "negative_current_value": "rejected",
+    "negative_delta": "rejected",
+    "orphan_child": "rejected (FK)",
+    "duplicate_singleton": "rejected (UNIQUE)",
+    "decimal_string_boolean_amount": "rejected (type)",
+    "overflow": "rejected (range)",
+    "privileged_admin_boundary": "ALTER TABLE DROP CONSTRAINT only"
+  },
+  "findings": [
+    { "id": "D-1", "class": "D", "summary": "xp_transactions.amount lacked non-negative CHECK (negative XP insertable)", "status": "FIXED" },
+    { "id": "B-fixed", "class": "B", "summary": "same monotonic invariant missing on total_xp/current_value/delta/current_level", "status": "FIXED" },
+    { "id": "C-1", "class": "C", "summary": "local test infra uses superuser role (production uses dedicated app role)", "status": "DOCUMENTED" }
+  ],
+  "migration": {
+    "file": "0002_majestic_exiles.sql",
+    "journal_entries": 3,
+    "forward": true,
+    "idempotent": true,
+    "pre_existing_violations": 0
+  },
+  "regression": {
+    "stage25_suite": "33/33",
+    "full_suite": "426/426 (43 files)",
+    "typecheck": "PASS",
+    "build": "PASS",
+    "secret_scan": "clean"
+  },
+  "guarantee_boundaries": {
+    "application": "awardXp sanitization + state-machine transitions + server-derived rewards",
+    "database": "CHECK/FK/UNIQUE constraints enforce invariants for app role and superuser",
+    "privileged_admin": "a DBA can ALTER TABLE DROP CONSTRAINT (inherent to RDBMS)",
+    "infrastructure": "backup/PITR/RPO/RTO outside repo (Stage 24)"
+  }
+}
